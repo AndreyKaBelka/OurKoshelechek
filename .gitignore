@@ -37,3 +37,13 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Dependencies
+node_modules/
+
+# Build
+dist/
+build/
+
+# Local caches
+.cache/
