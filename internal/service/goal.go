@@ -43,6 +43,12 @@ func NewGoalService(repositories *repository.Repositories, uow *platform.UnitOfW
 }
 
 func (s *GoalService) Create(ctx context.Context, groupID uuid.UUID, input model.CreateGoalInput) (*model.Goal, error) {
+	if input.OwnerUserID != nil {
+		if err := requireGroupMember(ctx, s.repositories, groupID, *input.OwnerUserID); err != nil {
+			return nil, err
+		}
+	}
+
 	amount := 0
 	if input.TargetAmount != nil {
 		amount = input.TargetAmount.Amount
@@ -117,22 +123,22 @@ func (s *GoalService) Contribute(ctx context.Context, groupID, goalID, createdBy
 	if g.Type == goal.TypePersonal && g.OwnerUserID != nil && *g.OwnerUserID != input.UserID {
 		return nil, ErrContributionNotFromOwner
 	}
+	if err := requireGroupMember(ctx, s.repositories, groupID, input.UserID); err != nil {
+		return nil, err
+	}
 
-	// Find the group's savings category, creating it if this is the group's
-	// first contribution; newCategory stays nil (nothing extra to persist)
-	// when it already exists.
-	var newCategory *category.Category
-	cat, err := s.repositories.Category.GetByName(ctx, groupID, savingsCategoryName)
+	// Find or atomically create the group's savings category. GetOrCreate is
+	// backed by a unique (group_id, name) index, so concurrent first
+	// contributions to the same group can't race into duplicate categories
+	// the way a GetByName-then-Create check would.
+	catNow := time.Now()
+	candidate, err := category.NewCategory(uuid.New(), groupID, savingsCategoryName, savingsCategoryIcon, nil, &catNow, &catNow)
 	if err != nil {
-		if !errors.Is(err, category.ErrNotFound) {
-			return nil, fmt.Errorf("load savings category: %w", err)
-		}
-		catNow := time.Now()
-		newCategory, err = category.NewCategory(uuid.New(), groupID, savingsCategoryName, savingsCategoryIcon, nil, &catNow, &catNow)
-		if err != nil {
-			return nil, err
-		}
-		cat = newCategory
+		return nil, err
+	}
+	cat, err := s.repositories.Category.GetOrCreate(ctx, candidate)
+	if err != nil {
+		return nil, fmt.Errorf("get or create savings category: %w", err)
 	}
 
 	amount := 0
@@ -156,11 +162,6 @@ func (s *GoalService) Contribute(ctx context.Context, groupID, goalID, createdBy
 	}
 
 	err = repository.RunInTx(ctx, s.uow, func(repos repository.Repositories) error {
-		if newCategory != nil {
-			if err := repos.Category.Create(ctx, newCategory); err != nil {
-				return fmt.Errorf("create savings category: %w", err)
-			}
-		}
 		if err := repos.Transaction.Create(ctx, *tx); err != nil {
 			return fmt.Errorf("create contribution transaction: %w", err)
 		}

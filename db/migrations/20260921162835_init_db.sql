@@ -69,6 +69,11 @@ CREATE TABLE categories
 
 CREATE INDEX idx_categories_group_id ON categories (group_id);
 
+-- Опирается на неё GetOrCreate для атомарного поиска/создания
+-- "well-known" категорий (например, «Накопления» для goal-взносов) без
+-- гонки при параллельных запросах.
+CREATE UNIQUE INDEX idx_categories_group_id_name ON categories (group_id, name);
+
 -- ===== transactions =====
 
 CREATE TYPE transaction_type AS ENUM ('income', 'expense');

@@ -28,6 +28,12 @@ var ErrEmailInviteNotSupported = errors.New("email-based invites are not support
 // nor email is set on the input.
 var ErrInviteInputRequired = errors.New("invite input requires exactly one of username or email")
 
+// ErrInsufficientRoleToRemoveMember is returned by RemoveMember when the
+// caller tries to remove a member whose role outranks their own (e.g. a
+// MEMBER removing the OWNER). Removing yourself is always allowed regardless
+// of role.
+var ErrInsufficientRoleToRemoveMember = errors.New("caller does not have sufficient role to remove this member")
+
 // GroupService holds the group business logic that resolvers previously
 // implemented inline: creating a group with its owner in one transaction,
 // membership management, and assembling a group's full member list.
@@ -111,7 +117,32 @@ func (s *GroupService) InviteMember(ctx context.Context, groupID uuid.UUID, inpu
 	}
 }
 
+// RemoveMember removes userID from groupID. The @requireGroupRole(min:
+// MEMBER) directive only checks that the caller is a member, not that they
+// outrank the member being removed, so that check happens here: a caller may
+// always remove themselves (leave the group), but removing someone else
+// requires the caller's role to be at least as high as the target's — e.g. a
+// plain MEMBER cannot remove the OWNER.
 func (s *GroupService) RemoveMember(ctx context.Context, groupID, userID uuid.UUID) (bool, error) {
+	actorID, err := platform.CurrentUserID(ctx)
+	if err != nil {
+		return false, err
+	}
+
+	if actorID != userID {
+		actor, err := s.repositories.GroupMember.Get(ctx, groupID, actorID)
+		if err != nil {
+			return false, fmt.Errorf("load caller membership: %w", err)
+		}
+		target, err := s.repositories.GroupMember.Get(ctx, groupID, userID)
+		if err != nil {
+			return false, fmt.Errorf("load target membership: %w", err)
+		}
+		if !actor.Role.AtLeast(target.Role) {
+			return false, ErrInsufficientRoleToRemoveMember
+		}
+	}
+
 	if err := s.repositories.GroupMember.Remove(ctx, groupID, userID); err != nil {
 		return false, fmt.Errorf("remove group member: %w", err)
 	}

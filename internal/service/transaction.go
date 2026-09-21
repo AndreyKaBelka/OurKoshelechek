@@ -105,6 +105,13 @@ func (s *TransactionService) Update(ctx context.Context, groupID, transactionID 
 	if input.CategoryID != nil {
 		newCategoryID = *input.CategoryID
 	}
+	// Validated before the DB write below: if newCategoryID doesn't belong to
+	// groupID, this must fail before Transaction.Update persists it, not
+	// after the surrounding transaction has already committed.
+	cat, err := s.repositories.Category.GetByID(ctx, groupID, newCategoryID)
+	if err != nil {
+		return nil, fmt.Errorf("load category %s: %w", newCategoryID, err)
+	}
 
 	newDate := existing.Date
 	if input.Date != nil {
@@ -170,10 +177,6 @@ func (s *TransactionService) Update(ctx context.Context, groupID, transactionID 
 		return nil, err
 	}
 
-	cat, err := s.repositories.Category.GetByID(ctx, groupID, t.CategoryID)
-	if err != nil {
-		return nil, fmt.Errorf("load category %s: %w", t.CategoryID, err)
-	}
 	shares, err := s.loadShares(ctx, *t)
 	if err != nil {
 		return nil, err
@@ -196,6 +199,10 @@ func (s *TransactionService) resolveShares(ctx context.Context, t transaction.Tr
 		shares := make([]transaction.PayerShare, 0, len(payer.Shares))
 		var sum int64
 		for _, si := range payer.Shares {
+			if err := requireGroupMember(ctx, s.repositories, t.GroupID, si.UserID); err != nil {
+				return nil, err
+			}
+
 			amount := 0
 			if si.Amount != nil {
 				amount = si.Amount.Amount

@@ -106,6 +106,10 @@ func (s *BudgetService) UpdateSplit(ctx context.Context, groupID uuid.UUID, spli
 	splits := make([]*budget.Split, 0, len(split))
 	var sum int64
 	for _, m := range split {
+		if err := requireGroupMember(ctx, s.repositories, groupID, m.UserID); err != nil {
+			return nil, err
+		}
+
 		amount := 0
 		if m.ShareAmount != nil {
 			amount = m.ShareAmount.Amount

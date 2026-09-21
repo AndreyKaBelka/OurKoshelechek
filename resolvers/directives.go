@@ -10,6 +10,7 @@ import (
 
 	"OurKoshelechek/graph/model"
 	"OurKoshelechek/internal/domain/group"
+	"OurKoshelechek/internal/mapper"
 	"OurKoshelechek/internal/platform"
 )
 
@@ -47,7 +48,7 @@ func requireGroupRole(ctx context.Context, repo groupMembershipReader, next grap
 	if err != nil {
 		return nil, err
 	}
-	if !member.Role.AtLeast(domainRoleFromModel(min)) {
+	if !member.Role.AtLeast(mapper.ToDomainGroupRole(min)) {
 		return nil, ErrInsufficientGroupRole
 	}
 	return next(ctx)
@@ -91,15 +92,4 @@ func groupIDFromFieldArgs(ctx context.Context) (uuid.UUID, error) {
 		return uuid.UUID{}, fmt.Errorf("directive: groupId argument has unexpected type %T", raw)
 	}
 	return groupID, nil
-}
-
-func domainRoleFromModel(r model.GroupRole) group.Role {
-	switch r {
-	case model.GroupRoleOwner:
-		return group.RoleOwner
-	case model.GroupRoleMember:
-		return group.RoleMember
-	default:
-		return group.RoleReader
-	}
 }

@@ -48,6 +48,31 @@ func (r *Repository) GetByID(ctx context.Context, groupID, id uuid.UUID) (*Categ
 	return &c, nil
 }
 
+// GetOrCreate inserts c and returns it, or, if a category with the same
+// (group_id, name) already exists (enforced by the idx_categories_group_id_name
+// unique index), returns that existing row instead. Atomic under concurrent
+// callers racing to create the same well-known category (e.g. the goal
+// "Накопления" category on a group's first contribution) — unlike a
+// GetByName-then-Create check, it can't create duplicates or lose a race to
+// an unrelated row that hasn't committed yet.
+func (r *Repository) GetOrCreate(ctx context.Context, c *Category) (*Category, error) {
+	var out Category
+	err := r.db.QueryRow(ctx, `
+		INSERT INTO categories (id, group_id, name, icon, monthly_limit_amount, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		ON CONFLICT (group_id, name) DO NOTHING
+		RETURNING id, group_id, name, icon, monthly_limit_amount, created_at, updated_at
+	`, c.ID, c.GroupID, c.Name, c.Icon, c.MonthlyLimitAmount, c.CreatedAt, c.UpdatedAt).
+		Scan(&out.ID, &out.GroupID, &out.Name, &out.Icon, &out.MonthlyLimitAmount, &out.CreatedAt, &out.UpdatedAt)
+	if err == nil {
+		return &out, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return nil, fmt.Errorf("insert category: %w", err)
+	}
+	return r.GetByName(ctx, c.GroupID, c.Name)
+}
+
 // GetByName returns the group's category with the given exact name, or
 // ErrNotFound. Used to find well-known categories such as the "Накопления"
 // savings category that goal contributions post expenses against.

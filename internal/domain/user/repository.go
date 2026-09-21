@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"OurKoshelechek/internal/platform"
 )
@@ -21,12 +22,19 @@ func New(db platform.DBTX) *Repository {
 	return &Repository{db: db}
 }
 
+// PostgreSQL error code for a unique constraint violation.
+const pgUniqueViolation = "23505"
+
 func (r *Repository) Create(ctx context.Context, u User) error {
 	_, err := r.db.Exec(ctx, `
 		INSERT INTO users (id, username, password_hash)
 		VALUES ($1, $2, $3)
 	`, u.ID, u.Username, u.PasswordHash)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == pgUniqueViolation {
+			return ErrUsernameTaken
+		}
 		return fmt.Errorf("insert user: %w", err)
 	}
 	return nil

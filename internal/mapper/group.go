@@ -1,10 +1,6 @@
 package mapper
 
 import (
-	"time"
-
-	"github.com/google/uuid"
-
 	"OurKoshelechek/graph/model"
 	"OurKoshelechek/internal/domain/group"
 )
@@ -13,13 +9,6 @@ func ToModelGroup(g *group.Group) *model.Group {
 	return &model.Group{
 		ID:   g.ID,
 		Name: g.Name,
-	}
-}
-
-func ToDomainGroup(m *model.Group) *group.Group {
-	return &group.Group{
-		ID:   m.ID,
-		Name: m.Name,
 	}
 }
 
@@ -61,19 +50,4 @@ func ToModelGroupMember(m *group.Member, u *model.User) *model.GroupMember {
 		User: u,
 		Role: ToModelGroupRole(m.Role),
 	}
-}
-
-func ToDomainGroupMember(m *model.GroupMember, groupID uuid.UUID, joinedAt time.Time) *group.Member {
-	gm := &group.Member{
-		GroupID:  groupID,
-		Role:     group.RoleReader,
-		JoinedAt: joinedAt,
-	}
-	if m.User != nil {
-		gm.UserID = m.User.ID
-	}
-	if m.Role != nil {
-		gm.Role = ToDomainGroupRole(*m.Role)
-	}
-	return gm
 }

@@ -17,6 +17,7 @@ type User struct {
 }
 
 var ErrUsernameTooLong = errors.New("username too long")
+var ErrUsernameTaken = errors.New("username already taken")
 var ErrInvalidPassword = errors.New("invalid password")
 var ErrWrongTimeFormat = errors.New("updated at before created at")
 

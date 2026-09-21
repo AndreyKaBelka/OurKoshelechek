@@ -49,6 +49,12 @@ func (s *UserService) Register(ctx context.Context, input model.RegisterInput) (
 	}
 
 	if err := s.repo.Create(ctx, *u); err != nil {
+		// Belt-and-suspenders against the GetByUsername check above racing
+		// with a concurrent Register for the same username: the DB's unique
+		// constraint is the actual source of truth here.
+		if errors.Is(err, user.ErrUsernameTaken) {
+			return nil, ErrUsernameTaken
+		}
 		return nil, fmt.Errorf("create user: %w", err)
 	}
 
