@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:wght@400;500;600;700;800&display=swap">
+<style>
+body {
+  margin: 0;
+  font-family: 'Bitter', Georgia, serif;
+  color: #221F1A;
+  --ivory: #FAF8F1;
+  --paper: #FFFFFF;
+  --ink: #221F1A;
+  --ink-soft: #6E6759;
+  --ink-faint: #A79E8C;
+  --border: #E7E0D0;
+  --forest: #2F5D50;
+  --forest-dark: #1F4237;
+  --forest-soft: #E3EEE8;
+  --rust: #BF5B2C;
+  --rust-soft: #F6E4D6;
+  --gold: #B8842A;
+  --gold-soft: #F3E7CC;
+  --partner: #8B7A63;
+  --partner-soft: #EFEAE1;
+}
+a { color: inherit; text-decoration: none; }
+.serif { font-family: 'Bitter', Georgia, serif; }
+.nav-item { transition: background .15s ease, color .15s ease; }
+.nav-item:hover { background: var(--forest-soft); color: var(--forest-dark) !important; }
+.btn-primary { transition: background .15s ease; }
+.btn-primary:hover { background: var(--forest-dark); }
+.tx-row { transition: background .15s ease; }
+.tx-row:hover { background: var(--ivory); }
+.month-btn:hover { background: var(--ivory); }
+.see-all:hover { color: var(--ink); }
+</style>
+</helmet>
+<div style="width: 1440px; height: 1100px; box-sizing: border-box; display: flex; background: var(--ivory); overflow: hidden;">
+
+  <div style="width: 264px; flex-shrink: 0; background: var(--paper); border-right: 1px solid var(--border); box-sizing: border-box; padding: 32px 20px; display: flex; flex-direction: column; justify-content: space-between;">
+    <div style="display: flex; flex-direction: column; gap: 32px;">
+      <div style="display: flex; align-items: center; gap: 10px; padding: 0 8px;">
+        <div style="width: 32px; height: 32px; border-radius: 9px; background: var(--forest); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FAF8F1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-3-6.2"/><path d="M20 5v5h-5"/></svg>
+        </div>
+        <span class="serif" style="font-size: 20px; font-weight: 600; color: var(--ink);">Вдвоём</span>
+      </div>
+      <nav style="display: flex; flex-direction: column; gap: 4px;">
+        <a href="Main.dc.html" class="nav-item" style="display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 11px; background: var(--forest-soft); color: var(--forest-dark); font-weight: 600; font-size: 14.5px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg>
+          Обзор
+        </a>
+        <a href="Transaction.dc.html" class="nav-item" style="display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 11px; color: var(--ink-soft); font-weight: 500; font-size: 14.5px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
+          Операции
+        </a>
+        <a href="Budget.dc.html" class="nav-item" style="display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 11px; color: var(--ink-soft); font-weight: 500; font-size: 14.5px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.2"/><circle cx="12" cy="12" r="4.6"/><circle cx="12" cy="12" r="1"/></svg>
+          Бюджет
+        </a>
+        <a href="Goals.dc.html" class="nav-item" style="display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 11px; color: var(--ink-soft); font-weight: 500; font-size: 14.5px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v18"/><path d="M5 4c2-1.3 4-1.3 6 0s4 1.3 6 0v8c-2 1.3-4 1.3-6 0s-4-1.3-6 0V4z"/></svg>
+          Цели
+        </a>
+        <div class="nav-item" style="display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 11px; color: var(--ink-soft); font-weight: 500; font-size: 14.5px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 13a7.97 7.97 0 0 0 0-2l2-1.6-2-3.4-2.4 1a8 8 0 0 0-1.7-1L15 3h-4l-.3 2.6a8 8 0 0 0-1.7 1l-2.4-1-2 3.4L6.6 11a8 8 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a8 8 0 0 0 1.7 1L11 21h4l.3-2.6a8 8 0 0 0 1.7-1l2.4 1 2-3.4-2-1.6z"/></svg>
+          Настройки
+        </div>
+      </nav>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 14px; background: var(--ivory); border: 1px solid var(--border);">
+      <div style="display: flex; align-items: center;">
+        <div style="width: 30px; height: 30px; border-radius: 50%; background: var(--forest); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11.5px; font-weight: 700; border: 2px solid var(--ivory);">Вы</div>
+        <div style="width: 30px; height: 30px; border-radius: 50%; background: var(--partner); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; margin-left: -8px; border: 2px solid var(--ivory);">П</div>
+        <span style="margin-left: 10px; font-size: 13.5px; font-weight: 600; color: var(--ink);">Ваш дуэт</span>
+      </div>
+      <span style="font-size: 12.5px; color: var(--ink-soft); line-height: 1.45;">Общий доступ включён — бюджет обновляется у вас обоих в реальном времени</span>
+    </div>
+  </div>
+
+  <div style="flex: 1; box-sizing: border-box; padding: 40px 48px; display: flex; flex-direction: column; gap: 26px; min-width: 0;">
+
+    <div style="display: flex; align-items: flex-end; justify-content: space-between;">
+      <div>
+        <h1 class="serif" style="margin: 0 0 6px; font-size: 32px; font-weight: 600; color: var(--ink);">Обзор бюджета</h1>
+        <p style="margin: 0; font-size: 14.5px; color: var(--ink-soft);">Общий бюджет с партнёром — обновлено сегодня в 09:40</p>
+      </div>
+      <div style="display: flex; align-items: center; gap: 14px;">
+        <div style="display: flex; align-items: center; gap: 2px; padding: 6px; border: 1px solid var(--border); border-radius: 10px; background: var(--paper);">
+          <button class="month-btn" aria-label="Предыдущий месяц" style="border: none; background: none; padding: 6px; border-radius: 7px; color: var(--ink-soft); cursor: pointer; display: flex; align-items: center;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <span style="font-size: 13.5px; font-weight: 600; color: var(--ink); padding: 0 6px;">Сентябрь 2026</span>
+          <button class="month-btn" aria-label="Следующий месяц" style="border: none; background: none; padding: 6px; border-radius: 7px; color: var(--ink-soft); cursor: pointer; display: flex; align-items: center;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+        </div>
+        <a href="Transaction.dc.html" class="btn-primary" style="display: flex; align-items: center; gap: 8px; background: var(--forest); color: #fff; font-weight: 600; font-size: 14.5px; padding: 12px 20px; border-radius: 11px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          Добавить операцию
+        </a>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px;">
+
+      <div style="background: var(--paper); border: 1px solid var(--border); border-radius: 18px; padding: 24px; box-sizing: border-box;">
+        <span style="font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-soft);">Общий баланс</span>
+        <div class="serif" style="margin-top: 10px; font-size: 36px; font-weight: 600; color: var(--ink);">148 320 ₽</div>
+        <div style="margin-top: 12px; display: flex; align-items: center; gap: 6px; color: var(--forest-dark); font-size: 13px; font-weight: 700;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
+          +22 450 ₽ за сентябрь
+        </div>
+      </div>
+
+      <div style="background: var(--paper); border: 1px solid var(--border); border-radius: 18px; padding: 24px; box-sizing: border-box;">
+        <span style="font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-soft);">Доходы в сентябре</span>
+        <div class="serif" style="margin-top: 10px; font-size: 36px; font-weight: 600; color: var(--ink);">152 000 ₽</div>
+        <div style="margin-top: 14px; height: 8px; border-radius: 4px; background: var(--border); display: flex; gap: 2px; overflow: hidden;">
+          <div style="width: 58%; background: var(--forest); border-radius: 4px 0 0 4px;"></div>
+          <div style="width: 42%; background: var(--partner); border-radius: 0 4px 4px 0;"></div>
+        </div>
+        <div style="margin-top: 10px; display: flex; justify-content: space-between; font-size: 12.5px; color: var(--ink-soft);">
+          <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 8px; height: 8px; border-radius: 50%; background: var(--forest); display: inline-block;"></span>Вы · 88 000 ₽</span>
+          <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 8px; height: 8px; border-radius: 50%; background: var(--partner); display: inline-block;"></span>Партнёр · 64 000 ₽</span>
+        </div>
+      </div>
+
+      <div style="background: var(--paper); border: 1px solid var(--border); border-radius: 18px; padding: 24px; box-sizing: border-box;">
+        <span style="font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-soft);">Расходы в сентябре</span>
+        <div class="serif" style="margin-top: 10px; font-size: 36px; font-weight: 600; color: var(--ink);">129 550 ₽</div>
+        <div style="margin-top: 14px; display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; justify-content: space-between; font-size: 12.5px;">
+            <span style="display: flex; align-items: center; gap: 6px; color: var(--ink);"><span style="width: 8px; height: 8px; border-radius: 50%; background: var(--ink-faint); display: inline-block;"></span>Жильё</span>
+            <span style="font-weight: 700; color: var(--ink);">45 000 ₽</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 12.5px;">
+            <span style="display: flex; align-items: center; gap: 6px; color: var(--ink);"><span style="width: 8px; height: 8px; border-radius: 50%; background: var(--ink-faint); display: inline-block;"></span>Продукты</span>
+            <span style="font-weight: 700; color: var(--ink);">36 400 ₽</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 12.5px;">
+            <span style="display: flex; align-items: center; gap: 6px; color: var(--ink);"><span style="width: 8px; height: 8px; border-radius: 50%; background: var(--rust); display: inline-block;"></span>Развлечения</span>
+            <span style="font-weight: 700; color: var(--rust);">11 850 ₽</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1.4fr 1fr; gap: 22px; min-height: 0;">
+
+      <div style="background: var(--paper); border: 1px solid var(--border); border-radius: 18px; padding: 26px; box-sizing: border-box;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <h2 class="serif" style="margin: 0; font-size: 19px; font-weight: 600; color: var(--ink);">Бюджет по категориям</h2>
+          <a href="Budget.dc.html" class="see-all" style="display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: var(--ink-soft);">
+            Настроить
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+          </a>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 30px; height: 30px; border-radius: 9px; background: var(--ivory); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--ink-soft); flex-shrink: 0;">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg>
+                </div>
+                <span style="font-size: 14px; font-weight: 600; color: var(--ink);">Жильё</span>
+              </div>
+              <span style="font-size: 12.5px; color: var(--ink-soft);">45 000 из 45 000 ₽</span>
+            </div>
+            <div style="height: 8px; border-radius: 4px; background: var(--border); overflow: hidden;">
+              <div style="width: 100%; height: 100%; background: var(--forest); border-radius: 4px;"></div>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 30px; height: 30px; border-radius: 9px; background: var(--ivory); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--ink-soft); flex-shrink: 0;">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.5 3h2l2.3 12.4a2 2 0 0 0 2 1.6h8.4a2 2 0 0 0 2-1.6L21.5 7H6"/></svg>
+                </div>
+                <span style="font-size: 14px; font-weight: 600; color: var(--ink);">Продукты</span>
+              </div>
+              <span style="font-size: 12.5px; color: var(--ink-soft);">36 400 из 40 000 ₽</span>
+            </div>
+            <div style="height: 8px; border-radius: 4px; background: var(--border); overflow: hidden;">
+              <div style="width: 91%; height: 100%; background: var(--gold); border-radius: 4px;"></div>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 30px; height: 30px; border-radius: 9px; background: var(--ivory); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--ink-soft); flex-shrink: 0;">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13l2-6a2 2 0 0 1 2-1h10a2 2 0 0 1 2 1l2 6"/><rect x="2" y="13" width="20" height="6" rx="1.5"/><circle cx="7" cy="19" r="1.5"/><circle cx="17" cy="19" r="1.5"/></svg>
+                </div>
+                <span style="font-size: 14px; font-weight: 600; color: var(--ink);">Транспорт</span>
+              </div>
+              <span style="font-size: 12.5px; color: var(--ink-soft);">8 200 из 15 000 ₽</span>
+            </div>
+            <div style="height: 8px; border-radius: 4px; background: var(--border); overflow: hidden;">
+              <div style="width: 55%; height: 100%; background: var(--forest); border-radius: 4px;"></div>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 30px; height: 30px; border-radius: 9px; background: var(--ivory); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--ink-soft); flex-shrink: 0;">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M3 9h18M3 15h18M9 4v16M15 4v16"/></svg>
+                </div>
+                <span style="font-size: 14px; font-weight: 600; color: var(--ink);">Развлечения</span>
+              </div>
+              <span style="font-size: 12.5px; color: var(--rust); font-weight: 600;">11 850 из 10 000 ₽</span>
+            </div>
+            <div style="height: 8px; border-radius: 4px; background: var(--border); overflow: hidden;">
+              <div style="width: 100%; height: 100%; background: var(--rust); border-radius: 4px;"></div>
+            </div>
+            <span style="font-size: 11.5px; color: var(--rust);">Превышение на 1 850 ₽</span>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 30px; height: 30px; border-radius: 9px; background: var(--ivory); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--ink-soft); flex-shrink: 0;">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7-4.4-9.5-9A5.5 5.5 0 0 1 12 6a5.5 5.5 0 0 1 9.5 5c-2.5 4.6-9.5 9-9.5 9z"/></svg>
+                </div>
+                <span style="font-size: 14px; font-weight: 600; color: var(--ink);">Здоровье</span>
+              </div>
+              <span style="font-size: 12.5px; color: var(--ink-soft);">3 100 из 8 000 ₽</span>
+            </div>
+            <div style="height: 8px; border-radius: 4px; background: var(--border); overflow: hidden;">
+              <div style="width: 39%; height: 100%; background: var(--forest); border-radius: 4px;"></div>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 30px; height: 30px; border-radius: 9px; background: var(--ivory); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--ink-soft); flex-shrink: 0;">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10a5 5 0 0 1 5-5h4a5 5 0 0 1 5 3h1.5a1 1 0 0 1 .9 1.4l-1 2a1 1 0 0 1-.9.6H18v2a3 3 0 0 1-3 3H9l-1 2H5l1-2.3A5 5 0 0 1 4 13v-3z"/><circle cx="9" cy="11" r=".8" fill="currentColor" stroke="none"/></svg>
+                </div>
+                <span style="font-size: 14px; font-weight: 600; color: var(--ink);">Накопления</span>
+              </div>
+              <span style="display: flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--forest-dark); font-weight: 600;">
+                25 000 ₽ — цель месяца выполнена
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+              </span>
+            </div>
+            <div style="height: 8px; border-radius: 4px; background: var(--border); overflow: hidden;">
+              <div style="width: 100%; height: 100%; background: var(--forest); border-radius: 4px;"></div>
+            </div>
+          </div>
+
+        </div>
+
+        <a href="Goals.dc.html" class="see-all" style="display: flex; align-items: center; gap: 4px; justify-content: flex-end; margin-top: 16px; font-size: 12.5px; font-weight: 600; color: var(--ink-soft);">
+          Смотреть цели накоплений
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+        </a>
+      </div>
+
+      <div style="background: var(--paper); border: 1px solid var(--border); border-radius: 18px; padding: 22px; box-sizing: border-box;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 4px;">
+          <h2 class="serif" style="margin: 0; font-size: 19px; font-weight: 600; color: var(--ink);">Последние операции</h2>
+          <a href="Transaction.dc.html" class="see-all" style="display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: var(--ink-soft);">
+            Все
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+          </a>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+
+          <div class="tx-row" style="display: flex; align-items: center; justify-content: space-between; padding: 9px 4px; border-radius: 10px;">
+            <div style="display: flex; align-items: center; gap: 11px;">
+              <div style="width: 32px; height: 32px; border-radius: 10px; background: var(--ivory); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--ink-soft); flex-shrink: 0;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="1.5"/><path d="M3 9h18"/><circle cx="16.5" cy="13.5" r="1.3"/></svg>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 1px;">
+                <span style="font-size: 13px; font-weight: 600; color: var(--ink);">Зарплата</span>
+                <span style="font-size: 11.5px; color: var(--ink-soft);">Партнёр · 1 сент</span>
+              </div>
+            </div>
+            <span style="font-size: 13.5px; font-weight: 700; color: var(--forest-dark);">+64 000 ₽</span>
+          </div>
+
+          <div class="tx-row" style="display: flex; align-items: center; justify-content: space-between; padding: 9px 4px; border-radius: 10px;">
+            <div style="display: flex; align-items: center; gap: 11px;">
+              <div style="width: 32px; height: 32px; border-radius: 10px; background: var(--ivory); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--ink-soft); flex-shrink: 0;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="1.5"/><path d="M3 9h18"/><circle cx="16.5" cy="13.5" r="1.3"/></svg>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 1px;">
+                <span style="font-size: 13px; font-weight: 600; color: var(--ink);">Зарплата</span>
+                <span style="font-size: 11.5px; color: var(--ink-soft);">Вы · 1 сент</span>
+              </div>
+            </div>
+            <span style="font-size: 13.5px; font-weight: 700; color: var(--forest-dark);">+88 000 ₽</span>
+          </div>
+
+          <div class="tx-row" style="display: flex; align-items: center; justify-content: space-between; padding: 9px 4px; border-radius: 10px;">
+            <div style="display: flex; align-items: center; gap: 11px;">
+              <div style="width: 32px; height: 32px; border-radius: 10px; background: var(--ivory); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--ink-soft); flex-shrink: 0;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 1px;">
+                <span style="font-size: 13px; font-weight: 600; color: var(--ink);">Аренда квартиры</span>
+                <span style="font-size: 11.5px; color: var(--ink-soft);">Поровну · 2 сент</span>
+              </div>
+            </div>
+            <span style="font-size: 13.5px; font-weight: 700; color: var(--rust);">−45 000 ₽</span>
+          </div>
+
+          <div class="tx-row" style="display: flex; align-items: center; justify-content: space-between; padding: 9px 4px; border-radius: 10px;">
+            <div style="display: flex; align-items: center; gap: 11px;">
+              <div style="width: 32px; height: 32px; border-radius: 10px; background: var(--ivory); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--ink-soft); flex-shrink: 0;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.5 3h2l2.3 12.4a2 2 0 0 0 2 1.6h8.4a2 2 0 0 0 2-1.6L21.5 7H6"/></svg>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 1px;">
+                <span style="font-size: 13px; font-weight: 600; color: var(--ink);">Продукты, Пятёрочка</span>
+                <span style="font-size: 11.5px; color: var(--ink-soft);">Вы · 16 сент</span>
+              </div>
+            </div>
+            <span style="font-size: 13.5px; font-weight: 700; color: var(--rust);">−4 200 ₽</span>
+          </div>
+
+          <div class="tx-row" style="display: flex; align-items: center; justify-content: space-between; padding: 9px 4px; border-radius: 10px;">
+            <div style="display: flex; align-items: center; gap: 11px;">
+              <div style="width: 32px; height: 32px; border-radius: 10px; background: var(--ivory); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--ink-soft); flex-shrink: 0;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M3 9h18M3 15h18M9 4v16M15 4v16"/></svg>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 1px;">
+                <span style="font-size: 13px; font-weight: 600; color: var(--ink);">Кино и ужин</span>
+                <span style="font-size: 11.5px; color: var(--ink-soft);">Партнёр · 14 сент</span>
+              </div>
+            </div>
+            <span style="font-size: 13.5px; font-weight: 700; color: var(--rust);">−3 400 ₽</span>
+          </div>
+
+          <div class="tx-row" style="display: flex; align-items: center; justify-content: space-between; padding: 9px 4px; border-radius: 10px;">
+            <div style="display: flex; align-items: center; gap: 11px;">
+              <div style="width: 32px; height: 32px; border-radius: 10px; background: var(--ivory); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--ink-soft); flex-shrink: 0;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10a5 5 0 0 1 5-5h4a5 5 0 0 1 5 3h1.5a1 1 0 0 1 .9 1.4l-1 2a1 1 0 0 1-.9.6H18v2a3 3 0 0 1-3 3H9l-1 2H5l1-2.3A5 5 0 0 1 4 13v-3z"/><circle cx="9" cy="11" r=".8" fill="currentColor" stroke="none"/></svg>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 1px;">
+                <span style="font-size: 13px; font-weight: 600; color: var(--ink);">Перевод в копилку на отпуск</span>
+                <span style="font-size: 11.5px; color: var(--ink-soft);">Поровну · 5 сент</span>
+              </div>
+            </div>
+            <span style="font-size: 13.5px; font-weight: 700; color: var(--rust);">−25 000 ₽</span>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":1440,"height":1100}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

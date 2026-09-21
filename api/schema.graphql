@@ -1,0 +1,27 @@
+"UUID v4 в строковом представлении, например 123e4567-e89b-12d3-a456-426614174000."
+scalar UUID
+"Дата-время в формате RFC 3339 / ISO 8601, например 2026-09-20T12:00:00Z."
+scalar DateTime
+
+input MoneyInput {
+    "Сумма в минимальных единицах валюты (копейках)."
+    amount: Int!
+}
+
+type Money {
+    "Сумма в минимальных единицах валюты (копейках)."
+    amount: Int!
+}
+
+"""
+Требует, чтобы вызывающий был аутентифицирован и состоял в группе (любая
+роль — owner, member, reader), заданной аргументом groupId: UUID! поля.
+"""
+directive @requireGroupMembership on FIELD_DEFINITION
+
+"""
+Требует, чтобы вызывающий был аутентифицирован и состоял в группе,
+заданной аргументом groupId: UUID! поля, с ролью не ниже min
+(OWNER > MEMBER).
+"""
+directive @requireGroupRole(min: GroupRole!) on FIELD_DEFINITION

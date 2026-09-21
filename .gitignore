@@ -1,0 +1,39 @@
+# Build artifacts
+/bin/
+/migrate
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+/vendor/
+
+# Coverage / profiling
+*.cover
+coverage.out
+coverage.html
+*.prof
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# IDE / editor
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

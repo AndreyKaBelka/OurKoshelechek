@@ -1,0 +1,64 @@
+enum GroupRole {
+    OWNER
+    MEMBER
+}
+
+type GroupMember {
+    user: User!
+    "⚠️ зависит от решения о ролевой модели внутри группы."
+    role: GroupRole
+}
+
+type Group {
+    id: UUID!
+    name: String!
+    "Полный список участников группы."
+    members: [GroupMember!]!
+}
+
+"Элемент списка групп текущего пользователя (без полного списка участников)."
+type GroupSummaryItem {
+    id: UUID!
+    name: String!
+    membersCount: Int!
+}
+
+input CreateGroupInput {
+    name: String!
+}
+
+input UpdateGroupInput {
+    name: String!
+}
+
+"⚠️ зависит от решения: добавление по username, либо по email с генерацией инвайт-кода."
+input InviteMemberInput {
+    username: String
+    email: String
+}
+
+"Заполняется одно из полей, в зависимости от способа приглашения (⚠️ см. InviteMemberInput)."
+type InviteResult {
+    "Идентификатор инвайта, если приглашение шло по email-коду."
+    inviteId: UUID
+    "Идентификатор нового участника, если приглашение шло по username (добавление сразу)."
+    memberId: UUID
+}
+
+extend type Query {
+    "Список групп текущего пользователя."
+    groups: [GroupSummaryItem!]!
+    "Детали группы и список участников."
+    group(groupId: UUID!): Group @requireGroupMembership
+}
+
+extend type Mutation {
+    "Создать группу; создатель становится первым участником."
+    createGroup(input: CreateGroupInput!): Group!
+    "Переименовать группу."
+    updateGroup(groupId: UUID!, input: UpdateGroupInput!): Group! @requireGroupRole(min: MEMBER)
+    "Пригласить/добавить участника в группу."
+    inviteMember(groupId: UUID!, input: InviteMemberInput!): InviteResult! @requireGroupRole(min: MEMBER)
+    "Удалить участника из группы."
+    removeMember(groupId: UUID!, userId: UUID!): Boolean! @requireGroupRole(min: MEMBER)
+}

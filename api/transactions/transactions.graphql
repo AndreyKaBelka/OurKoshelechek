@@ -1,0 +1,111 @@
+enum TransactionType {
+    INCOME
+    EXPENSE
+}
+
+enum PayerMode {
+    USER
+    "Сумма делится между несколькими участниками группы; см. Payer.shares."
+    SPLIT
+}
+
+"Доля одного участника при payer.mode = SPLIT."
+type PayerShare {
+    userId: UUID!
+    amount: Money!
+}
+
+input PayerShareInput {
+    userId: UUID!
+    amount: MoneyInput!
+}
+
+type Payer {
+    mode: PayerMode!
+    "Плательщик, если mode = USER; null, если mode = SPLIT."
+    userId: UUID
+    "Явные суммы участников, если mode = SPLIT; null, если mode = USER. Сумма amount по всем элементам равна Transaction.amount."
+    shares: [PayerShare!]
+}
+
+input PayerInput {
+    mode: PayerMode!
+    "Обязателен, если mode = USER."
+    userId: UUID
+    "Суммы участников, если mode = SPLIT; не обязателен — если не задан, сумма делится поровну между всеми участниками группы. Сумма amount по всем элементам должна быть равна Transaction.amount."
+    shares: [PayerShareInput!]
+}
+
+type Transaction {
+    id: UUID!
+    type: TransactionType!
+    amount: Money!
+    category: Category!
+    payer: Payer!
+    date: DateTime!
+    comment: String
+    "Пользователь, создавший операцию (может отличаться от payer)."
+    createdBy: UUID!
+    createdAt: DateTime!
+}
+
+type TransactionList {
+    items: [Transaction!]!
+    "Курсор для запроса следующей страницы через аргумент after; null, если дальше ничего нет."
+    nextCursor: String
+    "true, если есть ещё операции после текущей страницы."
+    hasMore: Boolean!
+    "Общее число операций, подходящих под filter, вне зависимости от размера текущей страницы."
+    total: Int!
+}
+
+input CreateTransactionInput {
+    type: TransactionType!
+    amount: MoneyInput!
+    categoryId: UUID!
+    payer: PayerInput!
+    date: DateTime!
+    comment: String
+}
+
+input UpdateTransactionInput {
+    type: TransactionType
+    amount: MoneyInput
+    categoryId: UUID
+    payer: PayerInput
+    date: DateTime
+    comment: String
+}
+
+input TransactionFilter {
+    type: TransactionType
+    categoryId: UUID
+    payerUserId: UUID
+    "Нижняя граница по date, включительно."
+    dateFrom: DateTime
+    "Верхняя граница по date, включительно."
+    dateTo: DateTime
+}
+
+extend type Query {
+    "История операций группы с фильтром и курсорной пагинацией."
+    transactions(
+        groupId: UUID!
+        filter: TransactionFilter
+        "Сколько операций вернуть, максимум за один запрос."
+        first: Int = 20
+        "Непрозрачный курсор из TransactionList.nextCursor предыдущего ответа; отсутствует для первой страницы."
+        after: UUID
+    ): TransactionList! @requireGroupMembership
+    "Получить одну операцию по id; null, если не найдена или не принадлежит группе."
+    transaction(groupId: UUID!, transactionId: UUID!): Transaction @requireGroupMembership
+}
+
+extend type Mutation {
+    "Добавить операцию в группу."
+    createTransaction(groupId: UUID!, input: CreateTransactionInput!): Transaction! @requireGroupRole(min: MEMBER)
+    "Отредактировать операцию (частичное обновление)."
+    updateTransaction(groupId: UUID!, transactionId: UUID!, input: UpdateTransactionInput!): Transaction! @requireGroupRole(min: MEMBER)
+    "Удалить операцию."
+    deleteTransaction(groupId: UUID!, transactionId: UUID!): Boolean! @requireGroupRole(min: MEMBER)
+}

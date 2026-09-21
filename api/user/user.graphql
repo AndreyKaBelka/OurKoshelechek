@@ -1,0 +1,34 @@
+type User {
+    id: UUID!
+    username: String!
+}
+
+type AuthPayload {
+    accessToken: String!
+    "Тип токена для заголовка Authorization, всегда \"Bearer\"."
+    tokenType: String!
+    "Срок жизни accessToken в секундах."
+    expiresIn: Int!
+}
+
+input RegisterInput {
+    username: String!
+    password: String!
+}
+
+input LoginInput {
+    username: String!
+    password: String!
+}
+
+extend type Query {
+    "Текущий авторизованный пользователь (требует Authorization: Bearer <token>)."
+    me: User!
+}
+
+extend type Mutation {
+    "Зарегистрировать нового пользователя и сразу выдать токен."
+    register(input: RegisterInput!): AuthPayload!
+    "Войти по логину и паролю."
+    login(input: LoginInput!): AuthPayload!
+}

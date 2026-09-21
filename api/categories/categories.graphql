@@ -1,0 +1,35 @@
+type Category {
+    id: UUID!
+    "Иконка категории (эмодзи)."
+    icon: String!
+    name: String!
+    "Месячный лимит расходов по категории; null — лимит не задан."
+    monthlyLimit: Money
+}
+
+input CreateCategoryInput {
+    name: String!
+    "Иконка категории (эмодзи)."
+    icon: String!
+    monthlyLimit: MoneyInput
+}
+
+input UpdateCategoryInput {
+    name: String
+    icon: String
+    monthlyLimit: MoneyInput
+}
+
+extend type Query {
+    "Список категорий группы (дефолтные + пользовательские)."
+    categories(groupId: UUID!): [Category!]! @requireGroupMembership
+}
+
+extend type Mutation {
+    "Создать пользовательскую категорию группы."
+    createCategory(groupId: UUID!, input: CreateCategoryInput!): Category! @requireGroupRole(min: MEMBER)
+    "Изменить категорию, включая месячный лимит."
+    updateCategory(groupId: UUID!, categoryId: UUID!, input: UpdateCategoryInput!): Category! @requireGroupRole(min: MEMBER)
+    "Удалить категорию группы."
+    deleteCategory(groupId: UUID!, categoryId: UUID!): Boolean! @requireGroupRole(min: MEMBER)
+}

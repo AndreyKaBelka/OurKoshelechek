@@ -1,0 +1,9 @@
+enum HealthStatus {
+    OK
+    DOWN
+}
+
+extend type Query {
+    "Healthcheck для БД/деплоя."
+    health: HealthStatus!
+}

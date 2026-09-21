@@ -1,0 +1,66 @@
+enum GoalType {
+    "Взносы от нескольких участников группы, поровну."
+    SHARED
+    "Взносы только от одного участника (ownerUserId)."
+    PERSONAL
+}
+
+type Goal {
+    id: UUID!
+    name: String!
+    icon: String
+    targetAmount: Money!
+    currentAmount: Money!
+    type: GoalType!
+    ownerUserId: UUID
+    createdAt: DateTime!
+}
+
+"Один взнос в цель накопления."
+type GoalContribution {
+    id: UUID!
+    goalId: UUID!
+    amount: Money!
+    "Участник, внёсший сумму."
+    userId: UUID!
+    date: DateTime!
+}
+
+"ownerUserId обязателен, если type = PERSONAL."
+input CreateGoalInput {
+    name: String!
+    icon: String
+    targetAmount: MoneyInput!
+    type: GoalType!
+    ownerUserId: UUID
+}
+
+input UpdateGoalInput {
+    name: String
+    icon: String
+    targetAmount: MoneyInput
+}
+
+input ContributeGoalInput {
+    amount: MoneyInput!
+    userId: UUID!
+    date: DateTime
+}
+
+extend type Query {
+    "Список целей накоплений группы."
+    goals(groupId: UUID!): [Goal!]! @requireGroupMembership
+    "История взносов в цель (для прогноза срока достижения)."
+    goalContributions(groupId: UUID!, goalId: UUID!): [GoalContribution!]! @requireGroupMembership
+}
+
+extend type Mutation {
+    "Создать цель накопления группы."
+    createGoal(groupId: UUID!, input: CreateGoalInput!): Goal! @requireGroupRole(min: MEMBER)
+    "Изменить параметры цели (тип и владельца изменить нельзя)."
+    updateGoal(groupId: UUID!, goalId: UUID!, input: UpdateGoalInput!): Goal! @requireGroupRole(min: MEMBER)
+    "Удалить цель группы."
+    deleteGoal(groupId: UUID!, goalId: UUID!): Boolean! @requireGroupRole(min: MEMBER)
+    "Пополнить цель; также создаёт операцию-расход категории «Накопления»."
+    contributeToGoal(groupId: UUID!, goalId: UUID!, input: ContributeGoalInput!): GoalContribution! @requireGroupRole(min: MEMBER)
+}

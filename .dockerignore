@@ -1,0 +1,7 @@
+bin/
+migrate
+.idea/
+.git/
+*.md
+docs/
+design/
