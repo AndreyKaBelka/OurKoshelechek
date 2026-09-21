@@ -36,7 +36,12 @@ func NewTransactionService(repositories *repository.Repositories, uow *platform.
 // shares (explicit or split evenly across the group), persists everything
 // in one transaction, and assembles the GraphQL response together with its
 // category and payer shares.
-func (s *TransactionService) Create(ctx context.Context, groupID uuid.UUID, createdBy uuid.UUID, input model.CreateTransactionInput) (*model.Transaction, error) {
+func (s *TransactionService) Create(ctx context.Context, groupID uuid.UUID, input model.CreateTransactionInput) (*model.Transaction, error) {
+	createdBy, err := platform.CurrentUserID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	cat, err := s.repositories.Category.GetByID(ctx, groupID, input.CategoryID)
 	if err != nil {
 		return nil, fmt.Errorf("load category %s: %w", input.CategoryID, err)

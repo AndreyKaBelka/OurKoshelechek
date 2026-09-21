@@ -1,0 +1,28 @@
+query Budget($groupId: UUID!, $period: String!) {
+  budget(groupId: $groupId, period: $period) {
+    income {
+      amount
+    }
+    split {
+      userId
+      shareAmount {
+        amount
+      }
+    }
+    totalAllocated {
+      amount
+    }
+    free {
+      amount
+    }
+  }
+}
+
+mutation UpdateBudgetSplit($groupId: UUID!, $split: [BudgetSplitInput!]!) {
+  updateBudgetSplit(groupId: $groupId, split: $split) {
+    userId
+    shareAmount {
+      amount
+    }
+  }
+}

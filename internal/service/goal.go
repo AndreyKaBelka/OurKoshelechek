@@ -43,10 +43,15 @@ func NewGoalService(repositories *repository.Repositories, uow *platform.UnitOfW
 }
 
 func (s *GoalService) Create(ctx context.Context, groupID uuid.UUID, input model.CreateGoalInput) (*model.Goal, error) {
-	if input.OwnerUserID != nil {
-		if err := requireGroupMember(ctx, s.repositories, groupID, *input.OwnerUserID); err != nil {
-			return nil, err
-		}
+	createdBy, err := platform.CurrentUserID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	goalType := mapper.ToDomainGoalType(input.Type)
+	var ownerUserID *uuid.UUID
+	if goalType == goal.TypePersonal {
+		ownerUserID = &createdBy
 	}
 
 	amount := 0
@@ -55,7 +60,7 @@ func (s *GoalService) Create(ctx context.Context, groupID uuid.UUID, input model
 	}
 
 	now := time.Now()
-	g, err := goal.NewGoal(uuid.New(), groupID, input.Name, input.Icon, int64(amount), mapper.ToDomainGoalType(input.Type), input.OwnerUserID, now, now)
+	g, err := goal.NewGoal(uuid.New(), groupID, input.Name, input.Icon, int64(amount), goalType, ownerUserID, now, now)
 	if err != nil {
 		return nil, err
 	}
@@ -115,16 +120,18 @@ func (s *GoalService) Delete(ctx context.Context, groupID, goalID uuid.UUID) (bo
 // Contribute validates the contribution, finds or lazily creates the
 // group's savings category, and atomically persists the expense
 // transaction and the contribution record.
-func (s *GoalService) Contribute(ctx context.Context, groupID, goalID, createdBy uuid.UUID, input model.ContributeGoalInput) (*model.GoalContribution, error) {
+func (s *GoalService) Contribute(ctx context.Context, groupID, goalID uuid.UUID, input model.ContributeGoalInput) (*model.GoalContribution, error) {
+	createdBy, err := platform.CurrentUserID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	g, err := s.repositories.Goal.GetByID(ctx, groupID, goalID)
 	if err != nil {
 		return nil, fmt.Errorf("load goal %s: %w", goalID, err)
 	}
-	if g.Type == goal.TypePersonal && g.OwnerUserID != nil && *g.OwnerUserID != input.UserID {
+	if g.Type == goal.TypePersonal && g.OwnerUserID != nil && *g.OwnerUserID != createdBy {
 		return nil, ErrContributionNotFromOwner
-	}
-	if err := requireGroupMember(ctx, s.repositories, groupID, input.UserID); err != nil {
-		return nil, err
 	}
 
 	// Find or atomically create the group's savings category. GetOrCreate is
@@ -151,12 +158,12 @@ func (s *GoalService) Contribute(ctx context.Context, groupID, goalID, createdBy
 	}
 
 	now := time.Now()
-	tx, err := transaction.NewTransaction(uuid.New(), groupID, transaction.TypeExpense, int64(amount), cat.ID, transaction.PayerModeUser, &input.UserID, date, nil, createdBy, now, now)
+	tx, err := transaction.NewTransaction(uuid.New(), groupID, transaction.TypeExpense, int64(amount), cat.ID, transaction.PayerModeUser, &createdBy, date, nil, createdBy, now, now)
 	if err != nil {
 		return nil, err
 	}
 
-	c, err := goal.NewContribution(uuid.New(), goalID, int64(amount), input.UserID, date, &tx.ID, now)
+	c, err := goal.NewContribution(uuid.New(), goalID, int64(amount), createdBy, date, &tx.ID, now)
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +184,14 @@ func (s *GoalService) Contribute(ctx context.Context, groupID, goalID, createdBy
 	return mapper.ToModelGoalContribution(c), nil
 }
 
+// List returns the group's SHARED goals plus PERSONAL goals owned by the
+// current user; other members' PERSONAL goals are never visible.
 func (s *GoalService) List(ctx context.Context, groupID uuid.UUID) ([]*model.Goal, error) {
+	currentUserID, err := platform.CurrentUserID(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("current user id: %w", err)
+	}
+
 	goals, err := s.repositories.Goal.ListByGroup(ctx, groupID)
 	if err != nil {
 		return nil, fmt.Errorf("list goals: %w", err)
@@ -185,6 +199,9 @@ func (s *GoalService) List(ctx context.Context, groupID uuid.UUID) ([]*model.Goa
 
 	result := make([]*model.Goal, 0, len(goals))
 	for i := range goals {
+		if goals[i].Type == goal.TypePersonal && (goals[i].OwnerUserID == nil || *goals[i].OwnerUserID != currentUserID) {
+			continue
+		}
 		current, err := s.repositories.Contribution.SumByGoal(ctx, goals[i].ID)
 		if err != nil {
 			return nil, err
@@ -195,8 +212,18 @@ func (s *GoalService) List(ctx context.Context, groupID uuid.UUID) ([]*model.Goa
 }
 
 func (s *GoalService) ListContributions(ctx context.Context, groupID, goalID uuid.UUID) ([]*model.GoalContribution, error) {
-	if _, err := s.repositories.Goal.GetByID(ctx, groupID, goalID); err != nil {
+	goalDB, err := s.repositories.Goal.GetByID(ctx, groupID, goalID)
+	if err != nil {
 		return nil, fmt.Errorf("load goal %s: %w", goalID, err)
+	}
+
+	currentUserId, err := platform.CurrentUserID(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("current user id: %w", err)
+	}
+
+	if goalDB.Type == goal.TypePersonal && goalDB.OwnerUserID != nil && *goalDB.OwnerUserID != currentUserId {
+		return nil, ErrContributionNotFromOwner
 	}
 
 	contributions, err := s.repositories.Contribution.ListByGoal(ctx, goalID)

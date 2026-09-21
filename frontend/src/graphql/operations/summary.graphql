@@ -1,0 +1,26 @@
+query Summary($groupId: UUID!, $period: String!) {
+  summary(groupId: $groupId, period: $period) {
+    balance {
+      amount
+    }
+    balanceDeltaMonth {
+      amount
+    }
+    income {
+      total {
+        amount
+      }
+    }
+    expense {
+      total {
+        amount
+      }
+      byCategory {
+        categoryId
+        amount {
+          amount
+        }
+      }
+    }
+  }
+}

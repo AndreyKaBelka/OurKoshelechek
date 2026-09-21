@@ -1,0 +1,44 @@
+query Goals($groupId: UUID!) {
+  goals(groupId: $groupId) {
+    id
+    name
+    icon
+    targetAmount {
+      amount
+    }
+    currentAmount {
+      amount
+    }
+    type
+    ownerUserId
+    createdAt
+  }
+}
+
+mutation CreateGoal($groupId: UUID!, $input: CreateGoalInput!) {
+  createGoal(groupId: $groupId, input: $input) {
+    id
+    name
+    icon
+    targetAmount {
+      amount
+    }
+    currentAmount {
+      amount
+    }
+    type
+    ownerUserId
+    createdAt
+  }
+}
+
+mutation ContributeToGoal($groupId: UUID!, $goalId: UUID!, $input: ContributeGoalInput!) {
+  contributeToGoal(groupId: $groupId, goalId: $goalId, input: $input) {
+    id
+    goalId
+    amount {
+      amount
+    }
+    date
+  }
+}

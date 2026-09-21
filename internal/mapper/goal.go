@@ -46,21 +46,15 @@ func ToModelGoal(g *goal.Goal, currentAmount int64) *model.Goal {
 	}
 }
 
-func ToDomainGoal(m *model.Goal, groupID uuid.UUID, updatedAt time.Time) *goal.Goal {
-	g := &goal.Goal{
-		ID:          m.ID,
-		GroupID:     groupID,
-		Name:        m.Name,
-		Icon:        m.Icon,
-		Type:        ToDomainGoalType(m.Type),
-		OwnerUserID: m.OwnerUserID,
-		CreatedAt:   m.CreatedAt,
-		UpdatedAt:   updatedAt,
-	}
+// ToDomainGoal строит и валидирует Goal через goal.NewGoal, так что доменные
+// инварианты (непустое имя, сумма цели > 0, владелец для personal-целей и
+// т.д.) всегда проверяются.
+func ToDomainGoal(m *model.Goal, groupID uuid.UUID, updatedAt time.Time) (*goal.Goal, error) {
+	amount := 0
 	if m.TargetAmount != nil {
-		g.TargetAmount = int64(m.TargetAmount.Amount)
+		amount = m.TargetAmount.Amount
 	}
-	return g
+	return goal.NewGoal(m.ID, groupID, m.Name, m.Icon, int64(amount), ToDomainGoalType(m.Type), m.OwnerUserID, m.CreatedAt, updatedAt)
 }
 
 func ToModelGoalContribution(c *goal.Contribution) *model.GoalContribution {
@@ -68,23 +62,6 @@ func ToModelGoalContribution(c *goal.Contribution) *model.GoalContribution {
 		ID:     c.ID,
 		GoalID: c.GoalID,
 		Amount: &model.Money{Amount: int(c.Amount)},
-		UserID: c.UserID,
 		Date:   c.Date,
-	}
-}
-
-func ToDomainGoalContribution(m *model.GoalContribution, transactionID *uuid.UUID, createdAt time.Time) *goal.Contribution {
-	amount := 0
-	if m.Amount != nil {
-		amount = m.Amount.Amount
-	}
-	return &goal.Contribution{
-		ID:            m.ID,
-		GoalID:        m.GoalID,
-		Amount:        int64(amount),
-		UserID:        m.UserID,
-		Date:          m.Date,
-		TransactionID: transactionID,
-		CreatedAt:     createdAt,
 	}
 }

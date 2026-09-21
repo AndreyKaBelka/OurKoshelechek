@@ -98,7 +98,6 @@ type ComplexityRoot struct {
 		Date   func(childComplexity int) int
 		GoalID func(childComplexity int) int
 		ID     func(childComplexity int) int
-		UserID func(childComplexity int) int
 	}
 
 	Group struct {
@@ -475,12 +474,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.GoalContribution.ID(childComplexity), true
-	case "GoalContribution.userId":
-		if e.ComplexityRoot.GoalContribution.UserID == nil {
-			break
-		}
-
-		return e.ComplexityRoot.GoalContribution.UserID(childComplexity), true
 
 	case "Group.id":
 		if e.ComplexityRoot.Group.ID == nil {
@@ -1227,18 +1220,15 @@ type GoalContribution {
     id: UUID!
     goalId: UUID!
     amount: Money!
-    "Участник, внёсший сумму."
-    userId: UUID!
     date: DateTime!
 }
 
-"ownerUserId обязателен, если type = PERSONAL."
+"Для type = PERSONAL владельцем становится вызывающий пользователь."
 input CreateGoalInput {
     name: String!
     icon: String
     targetAmount: MoneyInput!
     type: GoalType!
-    ownerUserId: UUID
 }
 
 input UpdateGoalInput {
@@ -1249,7 +1239,6 @@ input UpdateGoalInput {
 
 input ContributeGoalInput {
     amount: MoneyInput!
-    userId: UUID!
     date: DateTime
 }
 
@@ -1682,8 +1671,6 @@ func (ec *executionContext) childFields_GoalContribution(ctx context.Context, fi
 		return ec.fieldContext_GoalContribution_goalId(ctx, field)
 	case "amount":
 		return ec.fieldContext_GoalContribution_amount(ctx, field)
-	case "userId":
-		return ec.fieldContext_GoalContribution_userId(ctx, field)
 	case "date":
 		return ec.fieldContext_GoalContribution_date(ctx, field)
 	}
@@ -3460,29 +3447,6 @@ func (ec *executionContext) fieldContext_GoalContribution_amount(_ context.Conte
 		},
 	}
 	return fc, nil
-}
-
-func (ec *executionContext) _GoalContribution_userId(ctx context.Context, field graphql.CollectedField, obj *model.GoalContribution) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_GoalContribution_userId(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.UserID, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
-			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_GoalContribution_userId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("GoalContribution", field, false, false, errors.New("field of type UUID does not have child fields"))
 }
 
 func (ec *executionContext) _GoalContribution_date(ctx context.Context, field graphql.CollectedField, obj *model.GoalContribution) (ret graphql.Marshaler) {
@@ -7266,7 +7230,7 @@ func (ec *executionContext) unmarshalInputContributeGoalInput(ctx context.Contex
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"amount", "userId", "date"}
+	fieldsInOrder := [...]string{"amount", "date"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -7280,13 +7244,6 @@ func (ec *executionContext) unmarshalInputContributeGoalInput(ctx context.Contex
 				return it, err
 			}
 			it.Amount = data
-		case "userId":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("userId"))
-			data, err := ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.UserID = data
 		case "date":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("date"))
 			data, err := ec.unmarshalODateTime2ᚖtimeᚐTime(ctx, v)
@@ -7354,7 +7311,7 @@ func (ec *executionContext) unmarshalInputCreateGoalInput(ctx context.Context, o
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"name", "icon", "targetAmount", "type", "ownerUserId"}
+	fieldsInOrder := [...]string{"name", "icon", "targetAmount", "type"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -7389,13 +7346,6 @@ func (ec *executionContext) unmarshalInputCreateGoalInput(ctx context.Context, o
 				return it, err
 			}
 			it.Type = data
-		case "ownerUserId":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("ownerUserId"))
-			data, err := ec.unmarshalOUUID2ᚖgithubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.OwnerUserID = data
 		}
 	}
 	return it, nil
@@ -8400,11 +8350,6 @@ func (ec *executionContext) _GoalContribution(ctx context.Context, sel ast.Selec
 			}
 		case "amount":
 			out.Values[i] = ec._GoalContribution_amount(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "userId":
-			out.Values[i] = ec._GoalContribution_userId(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

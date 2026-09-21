@@ -1,0 +1,53 @@
+query Groups {
+  groups {
+    id
+    name
+    membersCount
+  }
+}
+
+query Group($groupId: UUID!) {
+  group(groupId: $groupId) {
+    id
+    name
+    members {
+      role
+      user {
+        id
+        username
+      }
+    }
+  }
+}
+
+mutation CreateGroup($input: CreateGroupInput!) {
+  createGroup(input: $input) {
+    id
+    name
+    members {
+      role
+      user {
+        id
+        username
+      }
+    }
+  }
+}
+
+mutation UpdateGroup($groupId: UUID!, $input: UpdateGroupInput!) {
+  updateGroup(groupId: $groupId, input: $input) {
+    id
+    name
+  }
+}
+
+mutation InviteMember($groupId: UUID!, $input: InviteMemberInput!) {
+  inviteMember(groupId: $groupId, input: $input) {
+    inviteId
+    memberId
+  }
+}
+
+mutation RemoveMember($groupId: UUID!, $userId: UUID!) {
+  removeMember(groupId: $groupId, userId: $userId)
+}

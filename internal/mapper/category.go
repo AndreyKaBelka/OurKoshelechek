@@ -1,6 +1,10 @@
 package mapper
 
 import (
+	"time"
+
+	"github.com/google/uuid"
+
 	"OurKoshelechek/graph/model"
 	"OurKoshelechek/internal/domain/category"
 )
@@ -17,14 +21,13 @@ func ToModelCategory(c *category.Category) *model.Category {
 	return m
 }
 
-func ToDomainCategory(m *model.Category) *category.Category {
-	c := &category.Category{
-		ID:   m.ID,
-		Icon: m.Icon,
-		Name: m.Name,
-	}
+// ToDomainCategory строит и валидирует Category через category.NewCategory,
+// так что доменные инварианты (непустое/не слишком длинное имя, лимит > 0
+// и т.д.) всегда проверяются.
+func ToDomainCategory(m *model.Category, groupID uuid.UUID, createdAt, updatedAt *time.Time) (*category.Category, error) {
+	var monthlyLimit *int
 	if m.MonthlyLimit != nil {
-		c.MonthlyLimitAmount = &m.MonthlyLimit.Amount
+		monthlyLimit = &m.MonthlyLimit.Amount
 	}
-	return c
+	return category.NewCategory(m.ID, groupID, m.Name, m.Icon, monthlyLimit, createdAt, updatedAt)
 }

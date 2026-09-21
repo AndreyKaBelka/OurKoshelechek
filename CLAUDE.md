@@ -71,6 +71,10 @@ Money is always an integer amount in minimal currency units (kopecks), see the `
 `goal.ContributionRepository`). Repositories are pgx-based (no ORM), take a
 `platform.DBTX` (satisfied by both `*pgxpool.Pool` and `pgx.Tx`) instead of a concrete
 pool, and translate `pgx.ErrNoRows` into a package-level `ErrNotFound`-style sentinel.
+Domain structs must always be built through their `New<Entity>(...)` constructor, never
+via a raw struct literal outside the domain package itself — the constructor is where all
+validation of that entity's invariants lives, so bypassing it (e.g. in `internal/mapper`
+or `internal/service`) silently skips validation and lets invalid entities reach the DB.
 
 **`internal/repository/`** (`Repositories` struct, built by `repository.New(db)`) bundles
 one instance of every domain repository behind a single value, constructed once per DB
@@ -86,7 +90,10 @@ orchestrating multiple repositories, issuing auth tokens, transaction handling v
 authorization plumbing, not business logic).
 
 **`internal/mapper/`** — pure functions converting between `graph/model` (GraphQL) types
-and `internal/domain/<name>` types (`ToModelUser`/`ToDomainUser` and friends).
+and `internal/domain/<name>` types (`ToModelUser`/`ToDomainUser` and friends). Every
+`ToDomain*` mapper must go through the target domain type's `New<Entity>(...)`
+constructor (returning its `error`) instead of building the struct literal directly, so
+GraphQL input always passes through the same validation as any other caller.
 
 **`internal/platform/`** holds cross-cutting infrastructure:
 `NewPG(connString)` (builds the `pgxpool.Pool`), `UnitOfWork`/`DBTX` (transaction

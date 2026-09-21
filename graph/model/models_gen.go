@@ -69,7 +69,6 @@ type CategoryAmount struct {
 
 type ContributeGoalInput struct {
 	Amount *MoneyInput `json:"amount"`
-	UserID uuid.UUID   `json:"userId"`
 	Date   *time.Time  `json:"date,omitempty"`
 }
 
@@ -80,13 +79,12 @@ type CreateCategoryInput struct {
 	MonthlyLimit *MoneyInput `json:"monthlyLimit,omitempty"`
 }
 
-// ownerUserId обязателен, если type = PERSONAL.
+// Для type = PERSONAL владельцем становится вызывающий пользователь.
 type CreateGoalInput struct {
 	Name         string      `json:"name"`
 	Icon         *string     `json:"icon,omitempty"`
 	TargetAmount *MoneyInput `json:"targetAmount"`
 	Type         GoalType    `json:"type"`
-	OwnerUserID  *uuid.UUID  `json:"ownerUserId,omitempty"`
 }
 
 type CreateGroupInput struct {
@@ -125,8 +123,6 @@ type GoalContribution struct {
 	ID     uuid.UUID `json:"id"`
 	GoalID uuid.UUID `json:"goalId"`
 	Amount *Money    `json:"amount"`
-	// Участник, внёсший сумму.
-	UserID uuid.UUID `json:"userId"`
 	Date   time.Time `json:"date"`
 }
 

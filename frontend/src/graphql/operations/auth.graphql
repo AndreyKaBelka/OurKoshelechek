@@ -1,0 +1,22 @@
+query Me {
+  me {
+    id
+    username
+  }
+}
+
+mutation Register($input: RegisterInput!) {
+  register(input: $input) {
+    accessToken
+    tokenType
+    expiresIn
+  }
+}
+
+mutation Login($input: LoginInput!) {
+  login(input: $input) {
+    accessToken
+    tokenType
+    expiresIn
+  }
+}

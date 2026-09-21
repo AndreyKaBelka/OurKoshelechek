@@ -1,0 +1,61 @@
+query Transactions($groupId: UUID!, $filter: TransactionFilter, $first: Int) {
+  transactions(groupId: $groupId, filter: $filter, first: $first) {
+    items {
+      id
+      type
+      amount {
+        amount
+      }
+      category {
+        id
+        name
+        icon
+      }
+      payer {
+        mode
+        userId
+        shares {
+          userId
+          amount {
+            amount
+          }
+        }
+      }
+      date
+      comment
+      createdBy
+      createdAt
+    }
+    hasMore
+    total
+  }
+}
+
+mutation CreateTransaction($groupId: UUID!, $input: CreateTransactionInput!) {
+  createTransaction(groupId: $groupId, input: $input) {
+    id
+    type
+    amount {
+      amount
+    }
+    category {
+      id
+      name
+      icon
+    }
+    payer {
+      mode
+      userId
+      shares {
+        userId
+        amount {
+          amount
+        }
+      }
+    }
+    date
+    comment
+    createdBy
+    createdAt
+  }
+}

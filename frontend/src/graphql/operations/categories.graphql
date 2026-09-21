@@ -1,0 +1,36 @@
+query Categories($groupId: UUID!) {
+  categories(groupId: $groupId) {
+    id
+    icon
+    name
+    monthlyLimit {
+      amount
+    }
+  }
+}
+
+mutation CreateCategory($groupId: UUID!, $input: CreateCategoryInput!) {
+  createCategory(groupId: $groupId, input: $input) {
+    id
+    icon
+    name
+    monthlyLimit {
+      amount
+    }
+  }
+}
+
+mutation UpdateCategory($groupId: UUID!, $categoryId: UUID!, $input: UpdateCategoryInput!) {
+  updateCategory(groupId: $groupId, categoryId: $categoryId, input: $input) {
+    id
+    icon
+    name
+    monthlyLimit {
+      amount
+    }
+  }
+}
+
+mutation DeleteCategory($groupId: UUID!, $categoryId: UUID!) {
+  deleteCategory(groupId: $groupId, categoryId: $categoryId)
+}

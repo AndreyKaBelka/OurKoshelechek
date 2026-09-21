@@ -77,7 +77,12 @@ func (s *UserService) Login(ctx context.Context, input model.LoginInput) (*model
 	return s.issueToken(u.ID)
 }
 
-func (s *UserService) Me(ctx context.Context, userID uuid.UUID) (*model.User, error) {
+func (s *UserService) Me(ctx context.Context) (*model.User, error) {
+	userID, err := platform.CurrentUserID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	u, err := s.repo.GetByID(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("load current user: %w", err)

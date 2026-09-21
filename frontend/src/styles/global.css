@@ -1,0 +1,120 @@
+:root {
+  --ivory: #faf8f1;
+  --paper: #ffffff;
+  --ink: #221f1a;
+  --ink-soft: #6e6759;
+  --ink-faint: #a79e8c;
+  --border: #e7e0d0;
+  --forest: #2f5d50;
+  --forest-dark: #1f4237;
+  --forest-soft: #e3eee8;
+  --rust: #bf5b2c;
+  --rust-soft: #f6e4d6;
+  --gold: #b8842a;
+  --gold-soft: #f3e7cc;
+  --partner: #8b7a63;
+  --partner-soft: #efeae1;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--ivory);
+  font-family: "Bitter", Georgia, serif;
+  color: var(--ink);
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+a {
+  color: var(--forest-dark);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--forest);
+}
+
+.serif {
+  font-family: "Bitter", Georgia, serif;
+}
+
+input,
+select,
+button,
+textarea {
+  font-family: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.tab-item:active {
+  opacity: 0.6;
+}
+.fab:active {
+  opacity: 0.85;
+}
+.topup-btn:active {
+  background: var(--forest);
+  color: #fff !important;
+}
+.btn-ghost:active {
+  background: var(--ivory);
+}
+.row-trash:active {
+  background: var(--rust-soft);
+  color: var(--rust) !important;
+}
+.submit-btn:active {
+  filter: brightness(0.94);
+}
+.field:focus,
+.amt-input:focus {
+  outline: none;
+  border-color: var(--forest);
+}
+
+.split-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 10px;
+  border-radius: 5px;
+  outline: none;
+}
+.split-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid var(--forest-dark);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+.split-range::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid var(--forest-dark);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}

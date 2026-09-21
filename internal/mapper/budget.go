@@ -25,16 +25,12 @@ func ToModelBudgetSplits(splits []budget.Split) []*model.BudgetSplit {
 	return result
 }
 
-func ToDomainBudgetSplit(m *model.BudgetSplit, groupID uuid.UUID, period, updatedAt time.Time) *budget.Split {
+// ToDomainBudgetSplit строит и валидирует Split через budget.NewSplit, так
+// что доменный инвариант (доля > 0) всегда проверяется.
+func ToDomainBudgetSplit(m *model.BudgetSplit, groupID uuid.UUID, period, updatedAt time.Time) (*budget.Split, error) {
 	amount := 0
 	if m.ShareAmount != nil {
 		amount = m.ShareAmount.Amount
 	}
-	return &budget.Split{
-		GroupID:      groupID,
-		BudgetPeriod: period,
-		UserID:       m.UserID,
-		ShareAmount:  int64(amount),
-		UpdatedAt:    updatedAt,
-	}
+	return budget.NewSplit(groupID, m.UserID, period, int64(amount), updatedAt)
 }

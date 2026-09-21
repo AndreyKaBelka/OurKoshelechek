@@ -46,8 +46,14 @@ func NewGroupService(repositories *repository.Repositories, uow *platform.UnitOf
 	return &GroupService{repositories: repositories, uow: uow}
 }
 
-// Create makes a new group and adds ownerID as its owner member, atomically.
-func (s *GroupService) Create(ctx context.Context, ownerID uuid.UUID, input model.CreateGroupInput) (*model.Group, error) {
+// Create makes a new group and adds the current user as its owner member,
+// atomically.
+func (s *GroupService) Create(ctx context.Context, input model.CreateGroupInput) (*model.Group, error) {
+	ownerID, err := platform.CurrentUserID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	now := time.Now()
 	g, err := group.NewGroup(uuid.New(), input.Name, now, now)
 	if err != nil {
@@ -149,7 +155,12 @@ func (s *GroupService) RemoveMember(ctx context.Context, groupID, userID uuid.UU
 	return true, nil
 }
 
-func (s *GroupService) List(ctx context.Context, userID uuid.UUID) ([]*model.GroupSummaryItem, error) {
+func (s *GroupService) List(ctx context.Context) ([]*model.GroupSummaryItem, error) {
+	userID, err := platform.CurrentUserID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	groups, err := s.repositories.Group.ListByUser(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list groups: %w", err)

@@ -21,18 +21,15 @@ type GoalContribution {
     id: UUID!
     goalId: UUID!
     amount: Money!
-    "Участник, внёсший сумму."
-    userId: UUID!
     date: DateTime!
 }
 
-"ownerUserId обязателен, если type = PERSONAL."
+"Для type = PERSONAL владельцем становится вызывающий пользователь."
 input CreateGoalInput {
     name: String!
     icon: String
     targetAmount: MoneyInput!
     type: GoalType!
-    ownerUserId: UUID
 }
 
 input UpdateGoalInput {
@@ -43,7 +40,6 @@ input UpdateGoalInput {
 
 input ContributeGoalInput {
     amount: MoneyInput!
-    userId: UUID!
     date: DateTime
 }
 

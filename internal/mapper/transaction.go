@@ -60,16 +60,15 @@ func ToModelPayerShare(s *transaction.PayerShare) *model.PayerShare {
 	}
 }
 
-func ToDomainPayerShare(s *model.PayerShare, transactionID uuid.UUID) *transaction.PayerShare {
+// ToDomainPayerShare строит и валидирует PayerShare через
+// transaction.NewPayerShare, так что доменный инвариант (сумма доли > 0)
+// всегда проверяется.
+func ToDomainPayerShare(s *model.PayerShare, transactionID uuid.UUID) (*transaction.PayerShare, error) {
 	amount := 0
 	if s.Amount != nil {
 		amount = s.Amount.Amount
 	}
-	return &transaction.PayerShare{
-		TransactionID: transactionID,
-		UserID:        s.UserID,
-		Amount:        int64(amount),
-	}
+	return transaction.NewPayerShare(transactionID, s.UserID, int64(amount))
 }
 
 // ToModelPayerShares конвертирует список доменных PayerShare в GraphQL-модели.
@@ -107,26 +106,41 @@ func ToModelTransaction(t *transaction.Transaction, cat *model.Category, shares 
 	}
 }
 
-func ToDomainTransaction(m *model.Transaction) *transaction.Transaction {
-	t := &transaction.Transaction{
-		ID:        m.ID,
-		Type:      ToDomainTransactionType(m.Type),
-		Date:      m.Date,
-		Comment:   m.Comment,
-		CreatedBy: m.CreatedBy,
-		CreatedAt: m.CreatedAt,
-	}
+// ToDomainTransaction строит и валидирует Transaction через
+// transaction.NewTransaction, так что доменные инварианты (сумма > 0,
+// обязательный payer.userId при mode = USER и т.д.) всегда проверяются.
+func ToDomainTransaction(m *model.Transaction, groupID uuid.UUID, updatedAt time.Time) (*transaction.Transaction, error) {
+	amount := 0
 	if m.Amount != nil {
-		t.Amount = int64(m.Amount.Amount)
+		amount = m.Amount.Amount
 	}
+
+	var categoryID uuid.UUID
 	if m.Category != nil {
-		t.CategoryID = m.Category.ID
+		categoryID = m.Category.ID
 	}
+
+	var payerMode transaction.PayerMode
+	var payerUserID *uuid.UUID
 	if m.Payer != nil {
-		t.PayerMode = ToDomainPayerMode(m.Payer.Mode)
-		t.PayerUserID = m.Payer.UserID
+		payerMode = ToDomainPayerMode(m.Payer.Mode)
+		payerUserID = m.Payer.UserID
 	}
-	return t
+
+	return transaction.NewTransaction(
+		m.ID,
+		groupID,
+		ToDomainTransactionType(m.Type),
+		int64(amount),
+		categoryID,
+		payerMode,
+		payerUserID,
+		m.Date,
+		m.Comment,
+		m.CreatedBy,
+		m.CreatedAt,
+		updatedAt,
+	)
 }
 
 // ToDomainTransactionFromInput строит и валидирует Transaction через
