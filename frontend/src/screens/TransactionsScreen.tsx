@@ -60,6 +60,21 @@ export function TransactionsScreen() {
     setSharePartner(totalK ? kopecksToRoubleInput(half) : "");
   }
 
+  function onShareChange(who: "you" | "partner", raw: string) {
+    const digits = raw.replace(/\D/g, "");
+    const enteredK = roublesToKopecks(parseInt(digits, 10) || 0);
+    const restK = total ? Math.max(0, total - enteredK) : 0;
+    const restInput = total ? kopecksToRoubleInput(restK) : "";
+    if (who === "you") {
+      setShareYou(digits);
+      setSharePartner(restInput);
+    } else {
+      setSharePartner(digits);
+      setShareYou(restInput);
+    }
+    setSharesAuto(false);
+  }
+
   function onAmountChange(raw: string) {
     const digits = raw.replace(/\D/g, "");
     setAmount(digits);
@@ -177,7 +192,7 @@ export function TransactionsScreen() {
                   <span style={{ fontSize: 13, fontWeight: 600 }}>Вы</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                  <input type="number" inputMode="numeric" className="amt-input" value={shareYou} onChange={(e) => { setShareYou(e.target.value.replace(/\D/g, "")); setSharesAuto(false); }} aria-label="Сколько вложили вы" />
+                  <input type="number" inputMode="numeric" className="amt-input" value={shareYou} onChange={(e) => onShareChange("you", e.target.value)} aria-label="Сколько вложили вы" />
                   <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>₽</span>
                 </div>
               </div>
@@ -187,7 +202,7 @@ export function TransactionsScreen() {
                   <span style={{ fontSize: 13, fontWeight: 600 }}>{partner?.username ?? "Партнёр"}</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                  <input type="number" inputMode="numeric" className="amt-input" value={sharePartner} onChange={(e) => { setSharePartner(e.target.value.replace(/\D/g, "")); setSharesAuto(false); }} aria-label="Сколько вложил партнёр" />
+                  <input type="number" inputMode="numeric" className="amt-input" value={sharePartner} onChange={(e) => onShareChange("partner", e.target.value)} aria-label="Сколько вложил партнёр" />
                   <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>₽</span>
                 </div>
               </div>

@@ -6,7 +6,13 @@ import { currentPeriod } from "../lib/period";
 import { BottomSheet } from "../components/BottomSheet";
 import { Avatar } from "../components/Avatar";
 import { useCategoriesQuery } from "../graphql/operations/categories.generated";
-import { useContributeToGoalMutation, useCreateGoalMutation, useGoalsQuery } from "../graphql/operations/goals.generated";
+import {
+  useContributeToGoalMutation,
+  useCreateGoalMutation,
+  useDeleteGoalMutation,
+  useGoalsQuery,
+  useUpdateGoalMutation,
+} from "../graphql/operations/goals.generated";
 import { useSummaryQuery } from "../graphql/operations/summary.generated";
 import type { GoalType } from "../graphql/types";
 
@@ -24,14 +30,18 @@ export function GoalsScreen() {
   const [categoriesResult] = useCategoriesQuery({ variables: { groupId }, pause: !groupId, context: categoriesContext });
   const [summaryResult] = useSummaryQuery({ variables: { groupId, period }, pause: !groupId, context: summaryContext });
   const [, createGoalMutation] = useCreateGoalMutation();
+  const [, updateGoalMutation] = useUpdateGoalMutation();
+  const [, deleteGoalMutation] = useDeleteGoalMutation();
   const [, contributeMutation] = useContributeToGoalMutation();
 
   const [formOpen, setFormOpen] = useState(false);
+  const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [target, setTarget] = useState("");
   const [saved, setSaved] = useState("");
   const [goalType, setGoalType] = useState<GoalType>("SHARED");
   const [sheetGoalId, setSheetGoalId] = useState<string | null>(null);
+  const [topupAmount, setTopupAmount] = useState("");
   const [error, setError] = useState("");
 
   if (!activeGroup) return null;
@@ -44,9 +54,51 @@ export function GoalsScreen() {
 
   const targetK = roublesToKopecks(parseInt(target.replace(/\D/g, ""), 10) || 0);
   const formValid = !!name.trim() && !!targetK;
+  const isEditing = !!editingGoalId;
+
+  function closeForm() {
+    setFormOpen(false);
+    setEditingGoalId(null);
+    setName("");
+    setTarget("");
+    setSaved("");
+    setGoalType("SHARED");
+  }
+
+  function openCreateForm() {
+    setEditingGoalId(null);
+    setError("");
+    setFormOpen(true);
+  }
+
+  function openEditForm(goalId: string) {
+    const goal = goals.find((g) => g.id === goalId);
+    if (!goal) return;
+    setEditingGoalId(goalId);
+    setName(goal.name);
+    setTarget(String(Math.round(goal.targetAmount.amount / 100)));
+    setSaved("");
+    setGoalType(goal.type);
+    setError("");
+    setFormOpen(true);
+  }
 
   async function saveGoal() {
     if (!formValid || !activeGroup) return;
+    if (isEditing && editingGoalId) {
+      const result = await updateGoalMutation({
+        groupId: activeGroup.id,
+        goalId: editingGoalId,
+        input: { name: name.trim(), targetAmount: { amount: targetK } },
+      });
+      if (result.error) {
+        setError(authErrorMessage(result.error));
+        return;
+      }
+      setError("");
+      closeForm();
+      return;
+    }
     const result = await createGoalMutation({
       groupId: activeGroup.id,
       input: { name: name.trim(), icon: goalType === "SHARED" ? "shield" : "laptop", targetAmount: { amount: targetK }, type: goalType },
@@ -64,22 +116,30 @@ export function GoalsScreen() {
       }
     }
     setError("");
-    setFormOpen(false);
-    setName("");
-    setTarget("");
-    setSaved("");
-    setGoalType("SHARED");
+    closeForm();
+  }
+
+  async function removeGoal(goalId: string, goalName: string) {
+    if (!activeGroup) return;
+    if (!window.confirm(`Удалить цель «${goalName}»? Это действие нельзя отменить.`)) return;
+    const result = await deleteGoalMutation({ groupId: activeGroup.id, goalId });
+    if (result.error) setError(authErrorMessage(result.error));
+  }
+
+  function closeSheet() {
+    setSheetGoalId(null);
+    setTopupAmount("");
   }
 
   async function topup(amountK: number) {
-    if (!sheetGoalId || !activeGroup) return;
+    if (!sheetGoalId || !activeGroup || !amountK) return;
     const result = await contributeMutation({ groupId: activeGroup.id, goalId: sheetGoalId, input: { amount: { amount: amountK } } });
     if (result.error) {
       setError(authErrorMessage(result.error));
       return;
     }
     setError("");
-    setSheetGoalId(null);
+    closeSheet();
   }
 
   return (
@@ -89,7 +149,7 @@ export function GoalsScreen() {
           <h1 className="serif">Цели накоплений</h1>
           <p>Общие и личные — копите вместе</p>
         </div>
-        <button type="button" aria-label="Добавить цель" onClick={() => setFormOpen(true)} style={{ border: "none", background: "var(--forest)", color: "#fff", width: 44, height: 44, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <button type="button" aria-label="Добавить цель" onClick={openCreateForm} style={{ border: "none", background: "var(--forest)", color: "#fff", width: 44, height: 44, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
         </button>
       </div>
@@ -130,10 +190,16 @@ export function GoalsScreen() {
               <div style={{ width: 36, height: 36, borderRadius: 10, background: g.type === "SHARED" ? "var(--forest-soft)" : "var(--partner-soft)", display: "flex", alignItems: "center", justifyContent: "center", color: g.type === "SHARED" ? "var(--forest-dark)" : "var(--partner)", flexShrink: 0 }}>
                 <TwoPathIcon paths={goalIcon(g.icon)} size={16} />
               </div>
-              <div>
+              <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 15, fontWeight: 700 }}>{g.name}</div>
                 <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>Цель — {formatMoney(target)} ₽</div>
               </div>
+              <button type="button" className="row-trash" aria-label="Редактировать цель" onClick={() => openEditForm(g.id)}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
+              </button>
+              <button type="button" className="row-trash" aria-label="Удалить цель" onClick={() => removeGoal(g.id, g.name)}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6" /></svg>
+              </button>
             </div>
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 7 }}>
@@ -166,14 +232,14 @@ export function GoalsScreen() {
         );
       })}
 
-      <button type="button" className="btn-ghost" onClick={() => setFormOpen(true)}>
+      <button type="button" className="btn-ghost" onClick={openCreateForm}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
         Добавить новую цель
       </button>
 
       {formOpen && (
-        <BottomSheet onClose={() => setFormOpen(false)}>
-          <h2 className="serif">Новая цель</h2>
+        <BottomSheet onClose={closeForm}>
+          <h2 className="serif">{isEditing ? "Редактировать цель" : "Новая цель"}</h2>
           <div style={{ marginBottom: 14 }}>
             <label className="field-label">Название</label>
             <input type="text" className="field" placeholder="Например, отпуск в Грузии" value={name} onChange={(e) => setName(e.target.value)} />
@@ -185,37 +251,49 @@ export function GoalsScreen() {
               <span className="serif" style={{ fontSize: 17, color: "var(--ink-faint)" }}>₽</span>
             </div>
           </div>
-          <div style={{ marginBottom: 14 }}>
-            <label className="field-label">Чья цель</label>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button type="button" className={`choice-btn${goalType === "SHARED" ? " active-forest" : ""}`} onClick={() => setGoalType("SHARED")}>Общая</button>
-              <button type="button" className={`choice-btn${goalType === "PERSONAL" ? " active-partner" : ""}`} onClick={() => setGoalType("PERSONAL")}>Личная</button>
+          {!isEditing && (
+            <div style={{ marginBottom: 14 }}>
+              <label className="field-label">Чья цель</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button type="button" className={`choice-btn${goalType === "SHARED" ? " active-forest" : ""}`} onClick={() => setGoalType("SHARED")}>Общая</button>
+                <button type="button" className={`choice-btn${goalType === "PERSONAL" ? " active-partner" : ""}`} onClick={() => setGoalType("PERSONAL")}>Личная</button>
+              </div>
             </div>
-          </div>
-          <div style={{ marginBottom: 16 }}>
-            <label className="field-label">Уже отложено</label>
-            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <input type="number" inputMode="numeric" className="amt-input" style={{ flex: 1 }} value={saved} onChange={(e) => setSaved(e.target.value.replace(/\D/g, ""))} />
-              <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>₽</span>
+          )}
+          {!isEditing && (
+            <div style={{ marginBottom: 16 }}>
+              <label className="field-label">Уже отложено</label>
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <input type="number" inputMode="numeric" className="amt-input" style={{ flex: 1 }} value={saved} onChange={(e) => setSaved(e.target.value.replace(/\D/g, ""))} />
+                <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>₽</span>
+              </div>
             </div>
-          </div>
-          <button type="button" className="submit-btn" disabled={!formValid} onClick={saveGoal}>Создать цель</button>
-          <button type="button" onClick={() => setFormOpen(false)} style={{ width: "100%", marginTop: 8, border: "none", borderRadius: 11, padding: "13px 0", fontSize: 13.5, fontWeight: 700, color: "var(--ink-soft)", background: "var(--ivory)" }}>Отмена</button>
+          )}
+          <button type="button" className="submit-btn" disabled={!formValid} onClick={saveGoal}>{isEditing ? "Сохранить" : "Создать цель"}</button>
+          <button type="button" onClick={closeForm} style={{ width: "100%", marginTop: 8, border: "none", borderRadius: 11, padding: "13px 0", fontSize: 13.5, fontWeight: 700, color: "var(--ink-soft)", background: "var(--ivory)" }}>Отмена</button>
         </BottomSheet>
       )}
 
       {sheetGoal && (
-        <BottomSheet onClose={() => setSheetGoalId(null)}>
+        <BottomSheet onClose={closeSheet}>
           <h2 className="serif" style={{ marginBottom: 4 }}>Пополнить «{sheetGoal.name}»</h2>
           <p style={{ margin: "0 0 16px", fontSize: 12.5, color: "var(--ink-soft)" }}>Осталось {formatMoney(Math.max(0, sheetGoal.targetAmount.amount - sheetGoal.currentAmount.amount))} ₽ до цели</p>
-          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
             {[5000, 10000, 25000].map((rub) => (
               <button key={rub} type="button" onClick={() => topup(roublesToKopecks(rub))} style={{ flex: 1, border: "1.5px solid var(--border)", background: "var(--ivory)", color: "var(--ink)", borderRadius: 10, padding: "14px 0", fontSize: 13, fontWeight: 600 }}>
                 +{rub.toLocaleString("ru-RU")}
               </button>
             ))}
           </div>
-          <button type="button" className="submit-btn" style={{ background: "var(--ivory)", color: "var(--ink-soft)" }} onClick={() => setSheetGoalId(null)}>Закрыть</button>
+          <div style={{ marginBottom: 16 }}>
+            <label className="field-label">Своя сумма</label>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, border: "1px solid var(--border)", borderRadius: 10, padding: "6px 14px" }}>
+              <input type="text" inputMode="numeric" placeholder="0" className="serif" value={topupAmount} onChange={(e) => setTopupAmount(e.target.value.replace(/\D/g, ""))} style={{ flex: 1, border: "none", outline: "none", fontSize: 20, fontWeight: 600, background: "none", minWidth: 0 }} />
+              <span className="serif" style={{ fontSize: 16, color: "var(--ink-faint)" }}>₽</span>
+            </div>
+          </div>
+          <button type="button" className="submit-btn" disabled={!topupAmount} onClick={() => topup(roublesToKopecks(parseInt(topupAmount, 10) || 0))}>Пополнить</button>
+          <button type="button" onClick={closeSheet} style={{ width: "100%", marginTop: 8, border: "none", borderRadius: 11, padding: "13px 0", fontSize: 13.5, fontWeight: 700, color: "var(--ink-soft)", background: "var(--ivory)" }}>Закрыть</button>
         </BottomSheet>
       )}
     </div>

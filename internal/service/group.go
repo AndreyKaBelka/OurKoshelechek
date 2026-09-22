@@ -55,7 +55,7 @@ func (s *GroupService) Create(ctx context.Context, input model.CreateGroupInput)
 	}
 
 	now := time.Now()
-	g, err := group.NewGroup(uuid.New(), input.Name, now, now)
+	g, err := group.NewGroup(platform.NewID(), input.Name, now, now)
 	if err != nil {
 		return nil, err
 	}

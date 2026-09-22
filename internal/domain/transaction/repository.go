@@ -100,9 +100,11 @@ type Filter struct {
 
 // List returns up to `first` transactions for a group matching filter, newest date first
 // (date DESC, id DESC), along with whether more rows follow and the total count of matching
-// rows (independent of pagination). Pagination is keyset-based: after, when non-nil, is the id
-// of the last item from the previous page, and rows are filtered to those strictly after it in
-// the (date, id) ordering.
+// rows (independent of pagination). IDs are UUIDv7 (see platform.NewID), so id DESC reliably
+// breaks ties within the same date (the date column only carries day-level precision from the
+// client) in creation order, unlike the random order plain v4 ids would give. Pagination is
+// keyset-based: after, when non-nil, is the id of the last item from the previous page, and
+// rows are filtered to those strictly after it in the (date, id) ordering.
 func (r *Repository) List(ctx context.Context, groupID uuid.UUID, filter Filter, first int, after *uuid.UUID) ([]Transaction, bool, int, error) {
 	where := []string{"group_id = $1"}
 	args := []any{groupID}

@@ -32,6 +32,12 @@ export type MoneyInput = {
   amount: number;
 };
 
+export type UpdateGoalInput = {
+  icon?: string | null | undefined;
+  name?: string | null | undefined;
+  targetAmount?: MoneyInput | null | undefined;
+};
+
 export type GoalsQueryVariables = Exact<{
   groupId: string;
 }>;
@@ -55,6 +61,23 @@ export type ContributeToGoalMutationVariables = Exact<{
 
 
 export type ContributeToGoalMutation = { contributeToGoal: { id: string, goalId: string, date: string, amount: { amount: number } } };
+
+export type UpdateGoalMutationVariables = Exact<{
+  groupId: string;
+  goalId: string;
+  input: Types.UpdateGoalInput;
+}>;
+
+
+export type UpdateGoalMutation = { updateGoal: { id: string, name: string, icon: string | null, type: Types.GoalType, ownerUserId: string | null, createdAt: string, targetAmount: { amount: number }, currentAmount: { amount: number } } };
+
+export type DeleteGoalMutationVariables = Exact<{
+  groupId: string;
+  goalId: string;
+}>;
+
+
+export type DeleteGoalMutation = { deleteGoal: boolean };
 
 
 export const GoalsDocument = gql`
@@ -116,4 +139,35 @@ export const ContributeToGoalDocument = gql`
 
 export function useContributeToGoalMutation() {
   return Urql.useMutation<ContributeToGoalMutation, ContributeToGoalMutationVariables>(ContributeToGoalDocument);
+};
+export const UpdateGoalDocument = gql`
+    mutation UpdateGoal($groupId: UUID!, $goalId: UUID!, $input: UpdateGoalInput!) {
+  updateGoal(groupId: $groupId, goalId: $goalId, input: $input) {
+    id
+    name
+    icon
+    targetAmount {
+      amount
+    }
+    currentAmount {
+      amount
+    }
+    type
+    ownerUserId
+    createdAt
+  }
+}
+    `;
+
+export function useUpdateGoalMutation() {
+  return Urql.useMutation<UpdateGoalMutation, UpdateGoalMutationVariables>(UpdateGoalDocument);
+};
+export const DeleteGoalDocument = gql`
+    mutation DeleteGoal($groupId: UUID!, $goalId: UUID!) {
+  deleteGoal(groupId: $groupId, goalId: $goalId)
+}
+    `;
+
+export function useDeleteGoalMutation() {
+  return Urql.useMutation<DeleteGoalMutation, DeleteGoalMutationVariables>(DeleteGoalDocument);
 };

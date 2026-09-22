@@ -7,6 +7,7 @@ import (
 
 	"OurKoshelechek/graph/model"
 	"OurKoshelechek/internal/domain/transaction"
+	"OurKoshelechek/internal/platform"
 )
 
 func ToModelTransactionType(t transaction.Type) model.TransactionType {
@@ -161,7 +162,7 @@ func ToDomainTransactionFromInput(m model.CreateTransactionInput, createdBy uuid
 
 	now := time.Now()
 	t, err := transaction.NewTransaction(
-		uuid.New(),
+		platform.NewID(),
 		groupID,
 		ToDomainTransactionType(m.Type),
 		int64(amount),

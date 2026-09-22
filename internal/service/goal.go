@@ -60,7 +60,7 @@ func (s *GoalService) Create(ctx context.Context, groupID uuid.UUID, input model
 	}
 
 	now := time.Now()
-	g, err := goal.NewGoal(uuid.New(), groupID, input.Name, input.Icon, int64(amount), goalType, ownerUserID, now, now)
+	g, err := goal.NewGoal(platform.NewID(), groupID, input.Name, input.Icon, int64(amount), goalType, ownerUserID, now, now)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +139,7 @@ func (s *GoalService) Contribute(ctx context.Context, groupID, goalID uuid.UUID,
 	// contributions to the same group can't race into duplicate categories
 	// the way a GetByName-then-Create check would.
 	catNow := time.Now()
-	candidate, err := category.NewCategory(uuid.New(), groupID, savingsCategoryName, savingsCategoryIcon, nil, &catNow, &catNow)
+	candidate, err := category.NewCategory(platform.NewID(), groupID, savingsCategoryName, savingsCategoryIcon, nil, &catNow, &catNow)
 	if err != nil {
 		return nil, err
 	}
@@ -158,12 +158,12 @@ func (s *GoalService) Contribute(ctx context.Context, groupID, goalID uuid.UUID,
 	}
 
 	now := time.Now()
-	tx, err := transaction.NewTransaction(uuid.New(), groupID, transaction.TypeExpense, int64(amount), &cat.ID, transaction.PayerModeUser, &createdBy, date, nil, createdBy, now, now)
+	tx, err := transaction.NewTransaction(platform.NewID(), groupID, transaction.TypeExpense, int64(amount), &cat.ID, transaction.PayerModeUser, &createdBy, date, nil, createdBy, now, now)
 	if err != nil {
 		return nil, err
 	}
 
-	c, err := goal.NewContribution(uuid.New(), goalID, int64(amount), createdBy, date, &tx.ID, now)
+	c, err := goal.NewContribution(platform.NewID(), goalID, int64(amount), createdBy, date, &tx.ID, now)
 	if err != nil {
 		return nil, err
 	}

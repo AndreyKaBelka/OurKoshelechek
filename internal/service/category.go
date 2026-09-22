@@ -15,6 +15,7 @@ import (
 	"OurKoshelechek/graph/model"
 	"OurKoshelechek/internal/domain/category"
 	"OurKoshelechek/internal/mapper"
+	"OurKoshelechek/internal/platform"
 )
 
 // CategoryService holds the category business logic that resolvers
@@ -36,7 +37,7 @@ func (s *CategoryService) Create(ctx context.Context, groupID uuid.UUID, input m
 	}
 
 	c, err := category.NewCategory(
-		uuid.New(),
+		platform.NewID(),
 		groupID,
 		input.Name,
 		input.Icon,

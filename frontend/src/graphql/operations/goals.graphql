@@ -42,3 +42,24 @@ mutation ContributeToGoal($groupId: UUID!, $goalId: UUID!, $input: ContributeGoa
     date
   }
 }
+
+mutation UpdateGoal($groupId: UUID!, $goalId: UUID!, $input: UpdateGoalInput!) {
+  updateGoal(groupId: $groupId, goalId: $goalId, input: $input) {
+    id
+    name
+    icon
+    targetAmount {
+      amount
+    }
+    currentAmount {
+      amount
+    }
+    type
+    ownerUserId
+    createdAt
+  }
+}
+
+mutation DeleteGoal($groupId: UUID!, $goalId: UUID!) {
+  deleteGoal(groupId: $groupId, goalId: $goalId)
+}

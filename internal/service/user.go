@@ -43,7 +43,7 @@ func (s *UserService) Register(ctx context.Context, input model.RegisterInput) (
 	}
 
 	now := time.Now()
-	u, err := user.NewUser(uuid.New(), input.Username, input.Password, &now, &now)
+	u, err := user.NewUser(platform.NewID(), input.Username, input.Password, &now, &now)
 	if err != nil {
 		return nil, err
 	}
