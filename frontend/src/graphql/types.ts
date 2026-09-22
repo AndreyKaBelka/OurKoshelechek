@@ -101,6 +101,8 @@ export type ExpenseSummary = {
   __typename?: 'ExpenseSummary';
   /** Разбивка расхода по категориям. */
   byCategory: Array<CategoryAmount>;
+  /** Разбивка расхода по участникам (учитывает доли в разделённых операциях). */
+  byMember: Array<MemberAmount>;
   /** Суммарный расход группы за период. */
   total: Money;
 };

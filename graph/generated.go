@@ -72,6 +72,7 @@ type ComplexityRoot struct {
 
 	ExpenseSummary struct {
 		ByCategory func(childComplexity int) int
+		ByMember   func(childComplexity int) int
 		Total      func(childComplexity int) int
 	}
 
@@ -360,6 +361,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.ExpenseSummary.ByCategory(childComplexity), true
+	case "ExpenseSummary.byMember":
+		if e.ComplexityRoot.ExpenseSummary.ByMember == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ExpenseSummary.ByMember(childComplexity), true
 	case "ExpenseSummary.total":
 		if e.ComplexityRoot.ExpenseSummary.Total == nil {
 			break
@@ -1326,6 +1333,8 @@ type ExpenseSummary {
     total: Money!
     "Разбивка расхода по категориям."
     byCategory: [CategoryAmount!]!
+    "Разбивка расхода по участникам (учитывает доли в разделённых операциях)."
+    byMember: [MemberAmount!]!
 }
 
 type GroupSummary {
@@ -1564,6 +1573,8 @@ func (ec *executionContext) childFields_ExpenseSummary(ctx context.Context, fiel
 		return ec.fieldContext_ExpenseSummary_total(ctx, field)
 	case "byCategory":
 		return ec.fieldContext_ExpenseSummary_byCategory(ctx, field)
+	case "byMember":
+		return ec.fieldContext_ExpenseSummary_byMember(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type ExpenseSummary", field.Name)
 }
@@ -2959,6 +2970,38 @@ func (ec *executionContext) fieldContext_ExpenseSummary_byCategory(_ context.Con
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return ec.childFields_CategoryAmount(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ExpenseSummary_byMember(ctx context.Context, field graphql.CollectedField, obj *model.ExpenseSummary) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ExpenseSummary_byMember(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ByMember, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.MemberAmount) graphql.Marshaler {
+			return ec.marshalNMemberAmount2ᚕᚖOurKoshelechekᚋgraphᚋmodelᚐMemberAmountᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ExpenseSummary_byMember(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ExpenseSummary",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MemberAmount(ctx, field)
 		},
 	}
 	return fc, nil
@@ -7872,6 +7915,11 @@ func (ec *executionContext) _ExpenseSummary(ctx context.Context, sel ast.Selecti
 			}
 		case "byCategory":
 			out.Values[i] = ec._ExpenseSummary_byCategory(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "byMember":
+			out.Values[i] = ec._ExpenseSummary_byMember(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

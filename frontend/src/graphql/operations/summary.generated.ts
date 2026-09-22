@@ -14,7 +14,7 @@ export type SummaryQueryVariables = Exact<{
 }>;
 
 
-export type SummaryQuery = { summary: { balance: { amount: number }, balanceDeltaMonth: { amount: number }, income: { total: { amount: number }, byMember: Array<{ userId: string, amount: { amount: number } }> }, expense: { total: { amount: number }, byCategory: Array<{ categoryId: string, amount: { amount: number } }> } } };
+export type SummaryQuery = { summary: { balance: { amount: number }, balanceDeltaMonth: { amount: number }, income: { total: { amount: number }, byMember: Array<{ userId: string, amount: { amount: number } }> }, expense: { total: { amount: number }, byCategory: Array<{ categoryId: string, amount: { amount: number } }>, byMember: Array<{ userId: string, amount: { amount: number } }> } } };
 
 
 export const SummaryDocument = gql`
@@ -43,6 +43,12 @@ export const SummaryDocument = gql`
       }
       byCategory {
         categoryId
+        amount {
+          amount
+        }
+      }
+      byMember {
+        userId
         amount {
           amount
         }

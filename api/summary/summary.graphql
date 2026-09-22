@@ -20,6 +20,8 @@ type ExpenseSummary {
     total: Money!
     "Разбивка расхода по категориям."
     byCategory: [CategoryAmount!]!
+    "Разбивка расхода по участникам (учитывает доли в разделённых операциях)."
+    byMember: [MemberAmount!]!
 }
 
 type GroupSummary {

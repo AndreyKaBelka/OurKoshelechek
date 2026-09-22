@@ -1,11 +1,18 @@
 import { useState } from "react";
 import { useAppStore, authErrorMessage } from "../store/store";
 import { formatMoney, kopecksToRoubleInput, roublesToKopecks } from "../lib/money";
-import { categoryIcon, TwoPathIcon } from "../lib/icons";
 import { txAmountColor, txAmountLabel, txMeta, txTitle } from "../lib/txDisplay";
 import { useCategoriesQuery } from "../graphql/operations/categories.generated";
-import { useCreateTransactionMutation, useTransactionsQuery } from "../graphql/operations/transactions.generated";
+import {
+  useCreateTransactionMutation,
+  useDeleteTransactionMutation,
+  useTransactionsQuery,
+  useUpdateTransactionMutation,
+} from "../graphql/operations/transactions.generated";
+import type { TransactionsQuery } from "../graphql/operations/transactions.generated";
 import type { PayerInput, TransactionType } from "../graphql/types";
+
+type TransactionItem = TransactionsQuery["transactions"]["items"][number];
 
 type PayerChoice = "you" | "partner" | "split";
 type Filter = "all" | "INCOME" | "EXPENSE";
@@ -34,6 +41,8 @@ export function TransactionsScreen() {
   const [submitted, setSubmitted] = useState(false);
   const [filter, setFilter] = useState<Filter>("all");
   const [error, setError] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const isEditing = !!editingId;
 
   if (!categoryId && categories.length > 0) setCategoryId(categories[0].id);
 
@@ -43,6 +52,8 @@ export function TransactionsScreen() {
     context: transactionsContext,
   });
   const [, createTransaction] = useCreateTransactionMutation();
+  const [, updateTransaction] = useUpdateTransactionMutation();
+  const [, deleteTransaction] = useDeleteTransactionMutation();
 
   const total = roublesToKopecks(parseInt(amount.replace(/\D/g, ""), 10) || 0);
   const shareYouK = roublesToKopecks(parseInt(shareYou.replace(/\D/g, ""), 10) || 0);
@@ -83,6 +94,12 @@ export function TransactionsScreen() {
 
   async function submit() {
     if (!formValid || !currentUserId || !activeGroup) return;
+    const now = new Date();
+    // Пополнение цели без явной даты сохраняется с текущим временем
+    // (time.Now() на бэкенде), поэтому ручная операция за "сегодня" тоже
+    // должна нести реальное время, а не полночь — иначе она всегда
+    // сортируется ниже более раннего доната того же дня.
+    const dateIso = date === now.toISOString().slice(0, 10) ? now.toISOString() : `${date}T00:00:00Z`;
     let payer: PayerInput;
     if (payerChoice === "you") payer = { mode: "USER", userId: currentUserId, shares: null };
     else if (payerChoice === "partner") payer = { mode: "USER", userId: partner?.userId ?? currentUserId, shares: null };
@@ -96,21 +113,61 @@ export function TransactionsScreen() {
         ],
       };
 
-    const result = await createTransaction({
-      groupId: activeGroup.id,
-      input: { type, amount: { amount: total }, categoryId: isIncome ? null : categoryId, payer, date: `${date}T00:00:00Z`, comment: comment.trim() || null },
-    });
+    const input = { type, amount: { amount: total }, categoryId: isIncome ? null : categoryId, payer, date: dateIso, comment: comment.trim() || null };
+    const result = editingId
+      ? await updateTransaction({ groupId: activeGroup.id, transactionId: editingId, input })
+      : await createTransaction({ groupId: activeGroup.id, input });
     if (result.error) {
       setError(authErrorMessage(result.error));
       return;
     }
     setError("");
+    resetForm();
+    setSubmitted(true);
+  }
+
+  function resetForm() {
+    setEditingId(null);
+    setType("EXPENSE");
     setAmount("");
     setComment("");
+    setCategoryId("");
+    setPayerChoice("split");
     setShareYou("");
     setSharePartner("");
     setSharesAuto(true);
-    setSubmitted(true);
+    setDate(new Date().toISOString().slice(0, 10));
+  }
+
+  function startEdit(t: TransactionItem) {
+    setSubmitted(false);
+    setError("");
+    setEditingId(t.id);
+    setType(t.type);
+    setAmount(kopecksToRoubleInput(t.amount.amount));
+    setComment(t.comment ?? "");
+    if (t.category) setCategoryId(t.category.id);
+    if (t.payer.mode === "SPLIT" && t.payer.shares) {
+      setPayerChoice("split");
+      setSharesAuto(false);
+      setShareYou(kopecksToRoubleInput(t.payer.shares.find((s) => s.userId === currentUserId)?.amount.amount ?? 0));
+      setSharePartner(kopecksToRoubleInput(t.payer.shares.find((s) => s.userId !== currentUserId)?.amount.amount ?? 0));
+    } else {
+      setPayerChoice(t.payer.userId === currentUserId ? "you" : "partner");
+    }
+    setDate(t.date.slice(0, 10));
+  }
+
+  async function removeTransaction(transactionId: string) {
+    if (!activeGroup) return;
+    if (!window.confirm("Удалить операцию? Это действие нельзя отменить.")) return;
+    const result = await deleteTransaction({ groupId: activeGroup.id, transactionId });
+    if (result.error) {
+      setError(authErrorMessage(result.error));
+      return;
+    }
+    if (editingId === transactionId) resetForm();
+    setError("");
   }
 
   const items = transactionsResult.data?.transactions.items ?? [];
@@ -132,6 +189,13 @@ export function TransactionsScreen() {
       </div>
 
       <div className="card">
+        {isEditing && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+            <h2 className="serif card-title" style={{ margin: 0 }}>Редактирование операции</h2>
+            <button type="button" className="link-btn" onClick={resetForm}>Отмена</button>
+          </div>
+        )}
+
         <div className="segmented" style={{ marginBottom: 16 }}>
           <button type="button" className={type === "EXPENSE" ? "active" : ""} style={type === "EXPENSE" ? { background: "var(--rust)", color: "#fff" } : undefined} onClick={() => setType("EXPENSE")}>Расход</button>
           <button type="button" className={type === "INCOME" ? "active" : ""} style={type === "INCOME" ? { background: "var(--forest)", color: "#fff" } : undefined} onClick={() => setType("INCOME")}>Доход</button>
@@ -219,13 +283,23 @@ export function TransactionsScreen() {
         {error && <div className="auth-error">{error}</div>}
 
         <button type="button" className={`submit-btn${type === "EXPENSE" ? " rust" : ""}`} disabled={!formValid} onClick={submit}>
-          {type === "EXPENSE" ? "Добавить расход" : "Добавить доход"}
+          {isEditing ? "Сохранить изменения" : type === "EXPENSE" ? "Добавить расход" : "Добавить доход"}
         </button>
+
+        {isEditing && (
+          <button
+            type="button"
+            onClick={() => editingId && removeTransaction(editingId)}
+            style={{ width: "100%", marginTop: 8, border: "none", borderRadius: 11, padding: "13px 0", fontSize: 13.5, fontWeight: 700, color: "var(--rust)", background: "var(--ivory)" }}
+          >
+            Удалить операцию
+          </button>
+        )}
 
         {submitted && (
           <div className="toast-success">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
-            Операция добавлена
+            {isEditing ? "Операция обновлена" : "Операция добавлена"}
           </div>
         )}
       </div>
@@ -239,16 +313,22 @@ export function TransactionsScreen() {
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           {items.map((t) => (
-            <div key={t.id} className="tx-row">
+            <button
+              key={t.id}
+              type="button"
+              className="tx-row"
+              onClick={() => startEdit(t)}
+              style={{ width: "100%", border: "none", background: t.id === editingId ? "var(--ivory)" : "none", borderRadius: 10, cursor: "pointer", textAlign: "left" }}
+            >
               <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                <div className="tx-icon"><TwoPathIcon paths={categoryIcon(t.category?.name ?? "Зарплата")} size={13} /></div>
+                <div className="tx-icon"><span style={{ fontSize: 14 }}>{t.category?.icon || "💰"}</span></div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
                   <span className="tx-title">{txTitle(t)}</span>
                   <span className="tx-meta">{txMeta(t, members, currentUserId)}</span>
                 </div>
               </div>
               <span className="tx-amount" style={{ color: txAmountColor(t) }}>{txAmountLabel(t)}</span>
-            </div>
+            </button>
           ))}
           {items.length === 0 && <p style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>Нет операций</p>}
         </div>

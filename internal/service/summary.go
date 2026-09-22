@@ -73,6 +73,18 @@ func (s *SummaryService) Summary(ctx context.Context, groupID uuid.UUID, period 
 		})
 	}
 
+	expenseByMemberRows, err := s.transactions.SumAmountByPayer(ctx, groupID, transaction.TypeExpense, from, to)
+	if err != nil {
+		return nil, fmt.Errorf("sum period expense by member: %w", err)
+	}
+	expenseByMember := make([]*model.MemberAmount, 0, len(expenseByMemberRows))
+	for _, row := range expenseByMemberRows {
+		expenseByMember = append(expenseByMember, &model.MemberAmount{
+			UserID: row.UserID,
+			Amount: &model.Money{Amount: int(row.Amount)},
+		})
+	}
+
 	return &model.GroupSummary{
 		Balance:           &model.Money{Amount: int(balance)},
 		BalanceDeltaMonth: &model.Money{Amount: int(balanceDeltaMonth)},
@@ -83,6 +95,7 @@ func (s *SummaryService) Summary(ctx context.Context, groupID uuid.UUID, period 
 		Expense: &model.ExpenseSummary{
 			Total:      &model.Money{Amount: int(periodExpense)},
 			ByCategory: byCategory,
+			ByMember:   expenseByMember,
 		},
 	}, nil
 }

@@ -1,7 +1,6 @@
 import {useState} from "react";
 import {authErrorMessage, useAppStore} from "../store/store";
 import {formatMoney, kopecksToRoubleInput, roublesToKopecks} from "../lib/money";
-import {categoryIcon, TwoPathIcon} from "../lib/icons";
 import {currentPeriod} from "../lib/period";
 import {Avatar} from "../components/Avatar";
 import {useBudgetQuery} from "../graphql/operations/budget.generated";
@@ -17,6 +16,61 @@ import type {Screen} from "../types";
 const budgetContext = {additionalTypenames: ["Category"]};
 const categoriesContext = {additionalTypenames: ["Category"]};
 const summaryContext = {additionalTypenames: ["Transaction", "GoalContribution"]};
+
+const PRESET_CATEGORY_ICONS = ["📦", "🍎", "🏠", "🚗", "🎮", "✈️", "💊", "👕", "🍽️", "🎁"];
+
+function EmojiPicker({value, onChange}: { value: string; onChange: (icon: string) => void }) {
+    const isCustom = value.length > 0 && !PRESET_CATEGORY_ICONS.includes(value);
+    return (
+        <div style={{marginTop: 6}}>
+            <div style={{display: "flex", gap: 8, flexWrap: "wrap"}}>
+                {PRESET_CATEGORY_ICONS.map((icon) => (
+                    <button
+                        key={icon}
+                        type="button"
+                        onClick={() => onChange(icon)}
+                        style={{
+                            width: 42,
+                            height: 42,
+                            borderRadius: 10,
+                            border: value === icon ? "2px solid var(--forest)" : "1px solid var(--border)",
+                            background: value === icon ? "var(--forest-light)" : "var(--ivory)",
+                            fontSize: 20,
+                            cursor: "pointer",
+                        }}
+                    >
+                        {icon}
+                    </button>
+                ))}
+            </div>
+            <div style={{display: "flex", alignItems: "center", gap: 10, marginTop: 10}}>
+                <div style={{
+                    width: 42,
+                    height: 42,
+                    flexShrink: 0,
+                    borderRadius: 10,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 20,
+                    border: isCustom ? "2px solid var(--forest)" : "1px dashed var(--border)",
+                    background: isCustom ? "var(--forest-light)" : "var(--ivory)",
+                    color: "var(--ink-soft)",
+                }}>
+                    {isCustom ? value : "+"}
+                </div>
+                <input
+                    type="text"
+                    className="field"
+                    placeholder="Впишите свой эмодзи"
+                    value={isCustom ? value : ""}
+                    onChange={(e) => onChange(e.target.value)}
+                    style={{flex: 1, padding: "11px 12px"}}
+                />
+            </div>
+        </div>
+    );
+}
 
 export function BudgetScreen({onNavigate}: { onNavigate: (screen: Screen) => void }) {
     const {activeGroup} = useAppStore();
@@ -36,6 +90,10 @@ export function BudgetScreen({onNavigate}: { onNavigate: (screen: Screen) => voi
     const [categoryIconValue, setCategoryIconValue] = useState("📦");
     const [categoryLimit, setCategoryLimit] = useState("");
     const [categorySaving, setCategorySaving] = useState(false);
+    const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+    const [editCategoryName, setEditCategoryName] = useState("");
+    const [editCategoryIcon, setEditCategoryIcon] = useState("📦");
+    const [editCategorySaving, setEditCategorySaving] = useState(false);
 
     if (!activeGroup) return null;
 
@@ -45,6 +103,7 @@ export function BudgetScreen({onNavigate}: { onNavigate: (screen: Screen) => voi
     const categories = categoriesResult.data?.categories ?? [];
     const spentByCategory = new Map((summaryResult.data?.summary.expense.byCategory ?? []).map((c) => [c.categoryId, c.amount.amount]));
     const incomeByMember = new Map((summaryResult.data?.summary.income.byMember ?? []).map((m) => [m.userId, m.amount.amount]));
+    const expenseByMember = new Map((summaryResult.data?.summary.expense.byMember ?? []).map((m) => [m.userId, m.amount.amount]));
 
     async function addCategory() {
         const name = categoryName.trim();
@@ -96,6 +155,42 @@ export function BudgetScreen({onNavigate}: { onNavigate: (screen: Screen) => voi
         if (result.error) setError(authErrorMessage(result.error));
     }
 
+    function startEditCategory(categoryId: string, currentName: string, currentIcon: string) {
+        setError("");
+        setEditingCategoryId(categoryId);
+        setEditCategoryName(currentName);
+        setEditCategoryIcon(currentIcon || "📦");
+    }
+
+    function cancelEditCategory() {
+        setEditingCategoryId(null);
+        setEditCategoryName("");
+    }
+
+    async function saveEditCategory(categoryId: string) {
+        const name = editCategoryName.trim();
+        if (!name) return;
+
+        setEditCategorySaving(true);
+        setError("");
+
+        const result = await updateCategory({
+            groupId: activeGroup!.id,
+            categoryId,
+            input: {name, icon: editCategoryIcon},
+        });
+
+        setEditCategorySaving(false);
+
+        if (result.error) {
+            setError(authErrorMessage(result.error));
+            return;
+        }
+
+        setEditingCategoryId(null);
+        setEditCategoryName("");
+    }
+
     async function removeCategory(categoryId: string, categoryName: string) {
         if (!window.confirm(`Удалить категорию «${categoryName}»? Операции в ней останутся в истории, но будут без категории.`)) return;
         const result = await deleteCategory({groupId: activeGroup!.id, categoryId});
@@ -134,6 +229,29 @@ export function BudgetScreen({onNavigate}: { onNavigate: (screen: Screen) => voi
                 ))}
             </div>
 
+            <div className="card">
+                <h2 className="serif card-title">Расходы по участникам</h2>
+                <p className="card-subtitle">Кто сколько потратил за месяц, с учётом совместных операций</p>
+                {activeGroup.members.map((m, i) => (
+                    <div key={m.userId} style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "12px 0",
+                        borderTop: i > 0 ? "1px solid var(--border)" : undefined
+                    }}>
+                        <div style={{display: "flex", alignItems: "center", gap: 10}}>
+                            <Avatar label={m.self ? "Вы" : m.username.slice(0, 1).toUpperCase()} self={m.self}/>
+                            <span style={{
+                                fontSize: 13.5,
+                                fontWeight: 600
+                            }}>{m.self ? "Вы" : m.username}</span>
+                        </div>
+                        <span style={{fontSize: 13.5, fontWeight: 600}}>{formatMoney(expenseByMember.get(m.userId) ?? 0)} ₽</span>
+                    </div>
+                ))}
+            </div>
+
             <div className="stat-row">
                 <div className="stat-tile">
                     <span className="stat-tile-label">Доход</span>
@@ -167,17 +285,69 @@ export function BudgetScreen({onNavigate}: { onNavigate: (screen: Screen) => voi
                             borderTop: i > 0 ? "1px solid var(--border)" : undefined
                         }}>
                             <div style={{display: "flex", alignItems: "center", gap: 10}}>
-                                <div className="tx-icon"><TwoPathIcon paths={categoryIcon(c.name)} size={14}/></div>
-                                <span style={{flex: 1, fontSize: 14, fontWeight: 600}}>{c.name}</span>
-                                <button type="button" className="row-trash" aria-label="Удалить категорию"
-                                        onClick={() => removeCategory(c.id, c.name)}>
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                         strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M3 6h18"/>
-                                        <path d="M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"/>
-                                    </svg>
-                                </button>
+                                {editingCategoryId === c.id ? (
+                                    <span style={{fontSize: 15}}>{editCategoryIcon || "📦"}</span>
+                                ) : (
+                                    <div className="tx-icon"><span style={{fontSize: 15}}>{c.icon || "📦"}</span></div>
+                                )}
+                                {editingCategoryId === c.id ? (
+                                    <>
+                                        <input
+                                            type="text"
+                                            className="field"
+                                            style={{flex: 1, padding: "6px 10px"}}
+                                            value={editCategoryName}
+                                            onChange={(e) => setEditCategoryName(e.target.value)}
+                                            autoFocus
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter") saveEditCategory(c.id);
+                                                if (e.key === "Escape") cancelEditCategory();
+                                            }}
+                                        />
+                                        <button type="button" className="row-trash" aria-label="Сохранить категорию"
+                                                disabled={!editCategoryName.trim() || editCategorySaving}
+                                                onClick={() => saveEditCategory(c.id)}>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                 strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M20 6L9 17l-5-5"/>
+                                            </svg>
+                                        </button>
+                                        <button type="button" className="row-trash" aria-label="Отменить редактирование"
+                                                disabled={editCategorySaving}
+                                                onClick={cancelEditCategory}>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                 strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M18 6L6 18M6 6l12 12"/>
+                                            </svg>
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <span style={{flex: 1, fontSize: 14, fontWeight: 600}}>{c.name}</span>
+                                        <button type="button" className="row-trash" aria-label="Переименовать категорию"
+                                                onClick={() => startEditCategory(c.id, c.name, c.icon)}>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                 strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M12 20h9"/>
+                                                <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                                            </svg>
+                                        </button>
+                                        <button type="button" className="row-trash" aria-label="Удалить категорию"
+                                                onClick={() => removeCategory(c.id, c.name)}>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                 strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M3 6h18"/>
+                                                <path d="M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"/>
+                                            </svg>
+                                        </button>
+                                    </>
+                                )}
                             </div>
+                            {editingCategoryId === c.id && (
+                                <div style={{padding: "2px 0 4px 0"}}>
+                                    <EmojiPicker value={editCategoryIcon} onChange={setEditCategoryIcon}/>
+                                </div>
+                            )}
                             <div style={{
                                 display: "flex",
                                 alignItems: "center",
@@ -271,50 +441,7 @@ export function BudgetScreen({onNavigate}: { onNavigate: (screen: Screen) => voi
                         Иконка
                     </label>
 
-                    <div
-                        style={{
-                            display: "flex",
-                            gap: 8,
-                            flexWrap: "wrap",
-                            marginTop: 6,
-                        }}
-                    >
-                        {[
-                            "📦",
-                            "🍎",
-                            "🏠",
-                            "🚗",
-                            "🎮",
-                            "✈️",
-                            "💊",
-                            "👕",
-                            "🍽️",
-                            "🎁",
-                        ].map((icon) => (
-                            <button
-                                key={icon}
-                                type="button"
-                                onClick={() => setCategoryIconValue(icon)}
-                                style={{
-                                    width: 42,
-                                    height: 42,
-                                    borderRadius: 10,
-                                    border:
-                                        categoryIconValue === icon
-                                            ? "2px solid var(--forest)"
-                                            : "1px solid var(--border)",
-                                    background:
-                                        categoryIconValue === icon
-                                            ? "var(--forest-light)"
-                                            : "var(--ivory)",
-                                    fontSize: 20,
-                                    cursor: "pointer",
-                                }}
-                            >
-                                {icon}
-                            </button>
-                        ))}
-                    </div>
+                    <EmojiPicker value={categoryIconValue} onChange={setCategoryIconValue}/>
 
                     <label
                         className="field-label"

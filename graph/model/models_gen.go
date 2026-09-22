@@ -94,6 +94,8 @@ type ExpenseSummary struct {
 	Total *Money `json:"total"`
 	// Разбивка расхода по категориям.
 	ByCategory []*CategoryAmount `json:"byCategory"`
+	// Разбивка расхода по участникам (учитывает доли в разделённых операциях).
+	ByMember []*MemberAmount `json:"byMember"`
 }
 
 type Goal struct {

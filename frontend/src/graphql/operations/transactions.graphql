@@ -59,3 +59,36 @@ mutation CreateTransaction($groupId: UUID!, $input: CreateTransactionInput!) {
     createdAt
   }
 }
+
+mutation UpdateTransaction($groupId: UUID!, $transactionId: UUID!, $input: UpdateTransactionInput!) {
+  updateTransaction(groupId: $groupId, transactionId: $transactionId, input: $input) {
+    id
+    type
+    amount {
+      amount
+    }
+    category {
+      id
+      name
+      icon
+    }
+    payer {
+      mode
+      userId
+      shares {
+        userId
+        amount {
+          amount
+        }
+      }
+    }
+    date
+    comment
+    createdBy
+    createdAt
+  }
+}
+
+mutation DeleteTransaction($groupId: UUID!, $transactionId: UUID!) {
+  deleteTransaction(groupId: $groupId, transactionId: $transactionId)
+}

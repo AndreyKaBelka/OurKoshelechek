@@ -55,6 +55,15 @@ export type TransactionType =
   | 'EXPENSE'
   | 'INCOME';
 
+export type UpdateTransactionInput = {
+  amount?: MoneyInput | null | undefined;
+  categoryId?: string | null | undefined;
+  comment?: string | null | undefined;
+  date?: string | null | undefined;
+  payer?: PayerInput | null | undefined;
+  type?: TransactionType | null | undefined;
+};
+
 export type TransactionsQueryVariables = Exact<{
   groupId: string;
   filter?: Types.TransactionFilter | null | undefined;
@@ -71,6 +80,23 @@ export type CreateTransactionMutationVariables = Exact<{
 
 
 export type CreateTransactionMutation = { createTransaction: { id: string, type: Types.TransactionType, date: string, comment: string | null, createdBy: string, createdAt: string, amount: { amount: number }, category: { id: string, name: string, icon: string } | null, payer: { mode: Types.PayerMode, userId: string | null, shares: Array<{ userId: string, amount: { amount: number } }> | null } } };
+
+export type UpdateTransactionMutationVariables = Exact<{
+  groupId: string;
+  transactionId: string;
+  input: Types.UpdateTransactionInput;
+}>;
+
+
+export type UpdateTransactionMutation = { updateTransaction: { id: string, type: Types.TransactionType, date: string, comment: string | null, createdBy: string, createdAt: string, amount: { amount: number }, category: { id: string, name: string, icon: string } | null, payer: { mode: Types.PayerMode, userId: string | null, shares: Array<{ userId: string, amount: { amount: number } }> | null } } };
+
+export type DeleteTransactionMutationVariables = Exact<{
+  groupId: string;
+  transactionId: string;
+}>;
+
+
+export type DeleteTransactionMutation = { deleteTransaction: boolean };
 
 
 export const TransactionsDocument = gql`
@@ -144,4 +170,51 @@ export const CreateTransactionDocument = gql`
 
 export function useCreateTransactionMutation() {
   return Urql.useMutation<CreateTransactionMutation, CreateTransactionMutationVariables>(CreateTransactionDocument);
+};
+export const UpdateTransactionDocument = gql`
+    mutation UpdateTransaction($groupId: UUID!, $transactionId: UUID!, $input: UpdateTransactionInput!) {
+  updateTransaction(
+    groupId: $groupId
+    transactionId: $transactionId
+    input: $input
+  ) {
+    id
+    type
+    amount {
+      amount
+    }
+    category {
+      id
+      name
+      icon
+    }
+    payer {
+      mode
+      userId
+      shares {
+        userId
+        amount {
+          amount
+        }
+      }
+    }
+    date
+    comment
+    createdBy
+    createdAt
+  }
+}
+    `;
+
+export function useUpdateTransactionMutation() {
+  return Urql.useMutation<UpdateTransactionMutation, UpdateTransactionMutationVariables>(UpdateTransactionDocument);
+};
+export const DeleteTransactionDocument = gql`
+    mutation DeleteTransaction($groupId: UUID!, $transactionId: UUID!) {
+  deleteTransaction(groupId: $groupId, transactionId: $transactionId)
+}
+    `;
+
+export function useDeleteTransactionMutation() {
+  return Urql.useMutation<DeleteTransactionMutation, DeleteTransactionMutationVariables>(DeleteTransactionDocument);
 };

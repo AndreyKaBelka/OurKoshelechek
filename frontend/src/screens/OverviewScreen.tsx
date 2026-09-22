@@ -1,6 +1,5 @@
 import { useAppStore } from "../store/store";
 import { formatMoney } from "../lib/money";
-import { categoryIcon, TwoPathIcon } from "../lib/icons";
 import { currentPeriod } from "../lib/period";
 import { txAmountColor, txAmountLabel, txMeta, txTitle } from "../lib/txDisplay";
 import { Avatar } from "../components/Avatar";
@@ -32,6 +31,7 @@ export function OverviewScreen({ onNavigate }: { onNavigate: (screen: Screen) =>
   const expense = summary?.expense.total.amount ?? 0;
   const net = income - expense;
   const spentByCategory = new Map((summary?.expense.byCategory ?? []).map((c) => [c.categoryId, c.amount.amount]));
+  const expenseByMember = new Map((summary?.expense.byMember ?? []).map((m) => [m.userId, m.amount.amount]));
 
   const topCats = (categoriesResult.data?.categories ?? [])
     .filter((c) => c.monthlyLimit)
@@ -106,6 +106,29 @@ export function OverviewScreen({ onNavigate }: { onNavigate: (screen: Screen) =>
         </div>
       </div>
 
+      {activeGroup.members.length > 1 && (
+        <div className="card">
+          <h2 className="serif card-title" style={{ margin: 0 }}>Расходы по участникам</h2>
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {activeGroup.members.map((m, i) => (
+              <div key={m.userId} style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "12px 0",
+                borderTop: i > 0 ? "1px solid var(--border)" : undefined,
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <Avatar label={m.self ? "Вы" : m.username.slice(0, 1).toUpperCase()} self={m.self} />
+                  <span style={{ fontSize: 13.5, fontWeight: 600 }}>{m.self ? "Вы" : m.username}</span>
+                </div>
+                <span style={{ fontSize: 13.5, fontWeight: 600 }}>{formatMoney(expenseByMember.get(m.userId) ?? 0)} ₽</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {topCats.length > 0 && (
         <div className="card">
           <div className="card-head-row">
@@ -135,7 +158,7 @@ export function OverviewScreen({ onNavigate }: { onNavigate: (screen: Screen) =>
           {recent.map((t) => (
             <div key={t.id} className="tx-row">
               <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                <div className="tx-icon"><TwoPathIcon paths={categoryIcon(t.category?.name ?? "Зарплата")} size={13} /></div>
+                <div className="tx-icon"><span style={{ fontSize: 14 }}>{t.category?.icon || "💰"}</span></div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
                   <span className="tx-title">{txTitle(t)}</span>
                   <span className="tx-meta">{txMeta(t, members, currentUserId)}</span>
