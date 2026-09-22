@@ -3,6 +3,7 @@ package goal
 import (
 	"errors"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 )
@@ -48,7 +49,7 @@ func NewGoal(id, groupID uuid.UUID, name string, icon *string, targetAmount int6
 		return nil, ErrNameEmpty
 	}
 
-	if len(name) > 50 {
+	if utf8.RuneCountInString(name) > 50 {
 		return nil, ErrNameTooLong
 	}
 

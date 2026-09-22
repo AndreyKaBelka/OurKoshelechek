@@ -3,6 +3,7 @@ package group
 import (
 	"errors"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 )
@@ -23,7 +24,7 @@ func NewGroup(id uuid.UUID, name string, createdAt, updatedAt time.Time) (*Group
 		return nil, ErrNameEmpty
 	}
 
-	if len(name) > 50 {
+	if utf8.RuneCountInString(name) > 50 {
 		return nil, ErrNameTooLong
 	}
 

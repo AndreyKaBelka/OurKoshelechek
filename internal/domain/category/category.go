@@ -3,6 +3,7 @@ package category
 import (
 	"errors"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -28,7 +29,7 @@ func NewCategory(id, groupID uuid.UUID, name, icon string, monthlyLimitAmount *i
 		return nil, ErrNameEmpty
 	}
 
-	if len(name) > 50 {
+	if utf8.RuneCountInString(name) > 50 {
 		return nil, ErrNameTooLong
 	}
 
