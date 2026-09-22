@@ -1,42 +1,27 @@
-type BudgetSplit {
-    userId: UUID!
-    "Доход, закреплённый за участником."
-    shareAmount: Money!
-}
-
 type BudgetCategory {
     categoryId: UUID!
-    "Сумма, выделенная на категорию за период (равна её monthlyLimit, если он задан)."
+    "Сумма, выделенная на категорию за период (равна её monthlyLimit)."
     amount: Money!
-    "Доля от общего дохода группы за период, от 0 до 1."
-    pctOfIncome: Float!
 }
 
+"""
+Бюджет — это план расходов по категориям, а не процент от дохода: он не
+требует и не зависит от указания планового дохода. income здесь — только
+справочная величина, посчитанная из фактических INCOME-транзакций за
+период; по факту дохода за период она равна summary.income.total.
+"""
 type Budget {
-    "Суммарный доход группы за период."
+    "Суммарный фактический доход группы за период (справочно, не влияет на план расходов)."
     income: Money!
-    "Разбивка дохода по долям участников."
-    split: [BudgetSplit!]!
     "Разбивка расходов по категориям с лимитами."
     categories: [BudgetCategory!]!
     "Сумма, уже распределённая по категориям."
     totalAllocated: Money!
-    "Доход за вычетом totalAllocated."
+    "Доход за вычетом totalAllocated; может быть отрицательным."
     free: Money!
 }
 
-"Сумма shareAmount по всем участникам должна быть равна доходу."
-input BudgetSplitInput {
-    userId: UUID!
-    shareAmount: MoneyInput!
-}
-
 extend type Query {
-    "Текущее распределение бюджета за период: доли участников, лимиты по категориям, доход. period в формате YYYY-MM."
+    "Текущий план бюджета за период: лимиты по категориям и справочный доход. period в формате YYYY-MM."
     budget(groupId: UUID!, period: String!): Budget! @requireGroupMembership
-}
-
-extend type Mutation {
-    "Обновить доли распределения расходов между участниками группы. Возвращает ошибку, если сумма долей не равна доходу."
-    updateBudgetSplit(groupId: UUID!, split: [BudgetSplitInput!]!): [BudgetSplit!]! @requireGroupRole(min: MEMBER)
 }

@@ -158,7 +158,7 @@ func (s *GoalService) Contribute(ctx context.Context, groupID, goalID uuid.UUID,
 	}
 
 	now := time.Now()
-	tx, err := transaction.NewTransaction(uuid.New(), groupID, transaction.TypeExpense, int64(amount), cat.ID, transaction.PayerModeUser, &createdBy, date, nil, createdBy, now, now)
+	tx, err := transaction.NewTransaction(uuid.New(), groupID, transaction.TypeExpense, int64(amount), &cat.ID, transaction.PayerModeUser, &createdBy, date, nil, createdBy, now, now)
 	if err != nil {
 		return nil, err
 	}

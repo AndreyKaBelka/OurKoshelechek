@@ -4,7 +4,7 @@ import {formatMoney, kopecksToRoubleInput, roublesToKopecks} from "../lib/money"
 import {categoryIcon, TwoPathIcon} from "../lib/icons";
 import {currentPeriod} from "../lib/period";
 import {Avatar} from "../components/Avatar";
-import {useBudgetQuery, useUpdateBudgetSplitMutation} from "../graphql/operations/budget.generated";
+import {useBudgetQuery} from "../graphql/operations/budget.generated";
 import {
     useCategoriesQuery,
     useCreateCategoryMutation,
@@ -14,7 +14,7 @@ import {
 import {useSummaryQuery} from "../graphql/operations/summary.generated";
 import type {Screen} from "../types";
 
-const budgetContext = {additionalTypenames: ["BudgetSplit", "Category"]};
+const budgetContext = {additionalTypenames: ["Category"]};
 const categoriesContext = {additionalTypenames: ["Category"]};
 const summaryContext = {additionalTypenames: ["Transaction", "GoalContribution"]};
 
@@ -26,26 +26,16 @@ export function BudgetScreen({onNavigate}: { onNavigate: (screen: Screen) => voi
     const [budgetResult] = useBudgetQuery({variables: {groupId, period}, pause: !groupId, context: budgetContext});
     const [categoriesResult] = useCategoriesQuery({variables: {groupId}, pause: !groupId, context: categoriesContext});
     const [summaryResult] = useSummaryQuery({variables: {groupId, period}, pause: !groupId, context: summaryContext});
-    const [, updateSplit] = useUpdateBudgetSplitMutation();
     const [, createCategory] = useCreateCategoryMutation();
     const [, updateCategory] = useUpdateCategoryMutation();
     const [, deleteCategory] = useDeleteCategoryMutation();
 
-    const [shareInputs, setShareInputs] = useState<Record<string, string>>({});
-    const [syncedSplit, setSyncedSplit] = useState(budgetResult.data);
     const [error, setError] = useState("");
     const [showCategoryForm, setShowCategoryForm] = useState(false);
     const [categoryName, setCategoryName] = useState("");
     const [categoryIconValue, setCategoryIconValue] = useState("📦");
     const [categoryLimit, setCategoryLimit] = useState("");
     const [categorySaving, setCategorySaving] = useState(false);
-
-    if (budgetResult.data && budgetResult.data !== syncedSplit) {
-        setSyncedSplit(budgetResult.data);
-        const next: Record<string, string> = {};
-        for (const s of budgetResult.data.budget.split) next[s.userId] = kopecksToRoubleInput(s.shareAmount.amount);
-        setShareInputs(next);
-    }
 
     if (!activeGroup) return null;
 
@@ -54,19 +44,7 @@ export function BudgetScreen({onNavigate}: { onNavigate: (screen: Screen) => voi
     const free = budgetResult.data?.budget.free.amount ?? 0;
     const categories = categoriesResult.data?.categories ?? [];
     const spentByCategory = new Map((summaryResult.data?.summary.expense.byCategory ?? []).map((c) => [c.categoryId, c.amount.amount]));
-
-    const sharesSumK = activeGroup.members.reduce((a, m) => a + roublesToKopecks(parseInt((shareInputs[m.userId] ?? "").replace(/\D/g, ""), 10) || 0), 0);
-    const sharesMatchIncome = sharesSumK === income;
-
-    async function saveSplit() {
-        const split = activeGroup!.members.map((m) => ({
-            userId: m.userId,
-            shareAmount: {amount: roublesToKopecks(parseInt((shareInputs[m.userId] ?? "").replace(/\D/g, ""), 10) || 0)},
-        }));
-        const result = await updateSplit({groupId: activeGroup!.id, split});
-        if (result.error) setError(authErrorMessage(result.error));
-        else setError("");
-    }
+    const incomeByMember = new Map((summaryResult.data?.summary.income.byMember ?? []).map((m) => [m.userId, m.amount.amount]));
 
     async function addCategory() {
         const name = categoryName.trim();
@@ -118,7 +96,8 @@ export function BudgetScreen({onNavigate}: { onNavigate: (screen: Screen) => voi
         if (result.error) setError(authErrorMessage(result.error));
     }
 
-    async function removeCategory(categoryId: string) {
+    async function removeCategory(categoryId: string, categoryName: string) {
+        if (!window.confirm(`Удалить категорию «${categoryName}»? Операции в ней останутся в истории, но будут без категории.`)) return;
         const result = await deleteCategory({groupId: activeGroup!.id, categoryId});
         if (result.error) setError(authErrorMessage(result.error));
     }
@@ -127,14 +106,14 @@ export function BudgetScreen({onNavigate}: { onNavigate: (screen: Screen) => voi
         <div className="page">
             <div className="page-header">
                 <h1 className="serif">Бюджет</h1>
-                <p>Доли дохода и лимиты по категориям на месяц</p>
+                <p>Доходы участников и лимиты по категориям на месяц</p>
             </div>
 
             {error && <div className="auth-error">{error}</div>}
 
             <div className="card">
-                <h2 className="serif card-title">Доли в бюджете</h2>
-                <p className="card-subtitle">Как фактический доход группы за месяц делится между участниками</p>
+                <h2 className="serif card-title">Доходы по участникам</h2>
+                <p className="card-subtitle">Считается автоматически по операциям «Доход» за месяц</p>
                 {activeGroup.members.map((m, i) => (
                     <div key={m.userId} style={{
                         display: "flex",
@@ -148,35 +127,11 @@ export function BudgetScreen({onNavigate}: { onNavigate: (screen: Screen) => voi
                             <span style={{
                                 fontSize: 13.5,
                                 fontWeight: 600
-                            }}>{m.self ? "Ваша доля" : `Доля: ${m.username}`}</span>
+                            }}>{m.self ? "Вы" : m.username}</span>
                         </div>
-                        <div style={{display: "flex", alignItems: "center", gap: 5}}>
-                            <input
-                                type="number"
-                                inputMode="numeric"
-                                className="amt-input"
-                                value={shareInputs[m.userId] ?? ""}
-                                onChange={(e) => setShareInputs((prev) => ({
-                                    ...prev,
-                                    [m.userId]: e.target.value.replace(/\D/g, "")
-                                }))}
-                                aria-label={`Доля: ${m.username}`}
-                            />
-                            <span style={{fontSize: 12, color: "var(--ink-soft)"}}>₽</span>
-                        </div>
+                        <span style={{fontSize: 13.5, fontWeight: 600}}>{formatMoney(incomeByMember.get(m.userId) ?? 0)} ₽</span>
                     </div>
                 ))}
-                <div style={{
-                    marginTop: 6,
-                    fontSize: 11.5,
-                    fontWeight: 600,
-                    color: sharesMatchIncome ? "var(--ink-faint)" : "var(--rust)"
-                }}>
-                    {sharesMatchIncome ? `Доли сходятся с доходом: ${formatMoney(income)} ₽` : `Сумма долей: ${formatMoney(sharesSumK)} ₽ — должна совпасть с доходом ${formatMoney(income)} ₽`}
-                </div>
-                <button type="button" className="submit-btn" style={{marginTop: 12}} disabled={!sharesMatchIncome}
-                        onClick={saveSplit}>Сохранить доли
-                </button>
             </div>
 
             <div className="stat-row">
@@ -202,7 +157,7 @@ export function BudgetScreen({onNavigate}: { onNavigate: (screen: Screen) => voi
                     const limit = c.monthlyLimit?.amount ?? 0;
                     const over = spent > limit;
                     const near = !over && limit > 0 && spent / limit >= 0.85;
-                    const pct = income ? Math.round((limit / income) * 100) : 0;
+                    const pct = limit ? Math.round((spent / limit) * 100) : 0;
                     return (
                         <div key={c.id} style={{
                             display: "flex",
@@ -215,7 +170,7 @@ export function BudgetScreen({onNavigate}: { onNavigate: (screen: Screen) => voi
                                 <div className="tx-icon"><TwoPathIcon paths={categoryIcon(c.name)} size={14}/></div>
                                 <span style={{flex: 1, fontSize: 14, fontWeight: 600}}>{c.name}</span>
                                 <button type="button" className="row-trash" aria-label="Удалить категорию"
-                                        onClick={() => removeCategory(c.id)}>
+                                        onClick={() => removeCategory(c.id, c.name)}>
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                          strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
                                         <path d="M3 6h18"/>
@@ -229,7 +184,7 @@ export function BudgetScreen({onNavigate}: { onNavigate: (screen: Screen) => voi
                                 justifyContent: "space-between",
                                 padding: "4px 0 8px 40px"
                             }}>
-                                <span style={{fontSize: 11.5, color: "var(--ink-soft)"}}>{pct}% дохода</span>
+                                <span style={{fontSize: 11.5, color: "var(--ink-soft)"}}>{pct}% использовано</span>
                                 <div style={{display: "flex", alignItems: "center", gap: 5}}>
                                     <input
                                         type="number"

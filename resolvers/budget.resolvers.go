@@ -12,11 +12,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// UpdateBudgetSplit is the resolver for the updateBudgetSplit field.
-func (r *mutationResolver) UpdateBudgetSplit(ctx context.Context, groupID uuid.UUID, split []*model.BudgetSplitInput) ([]*model.BudgetSplit, error) {
-	return r.BudgetService.UpdateSplit(ctx, groupID, split)
-}
-
 // Budget is the resolver for the budget field.
 func (r *queryResolver) Budget(ctx context.Context, groupID uuid.UUID, period string) (*model.Budget, error) {
 	return r.BudgetService.Budget(ctx, groupID, period)

@@ -26,7 +26,7 @@ type Transaction struct {
 	GroupID     uuid.UUID
 	Type        Type
 	Amount      int64
-	CategoryID  uuid.UUID
+	CategoryID  *uuid.UUID
 	PayerMode   PayerMode
 	PayerUserID *uuid.UUID
 	Date        time.Time
@@ -42,10 +42,19 @@ var ErrPayerUserRequired = errors.New("payer user id is required for user payer 
 var ErrInvalidAmount = errors.New("transaction amount must be positive")
 var ErrCommentTooLong = errors.New("comment too long")
 var ErrWrongTimeFormat = errors.New("updated at before created at")
+var ErrCategoryRequiredForExpense = errors.New("category is required for expense transactions")
+var ErrCategoryNotAllowedForIncome = errors.New("income transactions must not have a category")
 
-func NewTransaction(id, groupID uuid.UUID, txType Type, amount int64, categoryID uuid.UUID, payerMode PayerMode, payerUserID *uuid.UUID, date time.Time, comment *string, createdBy uuid.UUID, createdAt, updatedAt time.Time) (*Transaction, error) {
+func NewTransaction(id, groupID uuid.UUID, txType Type, amount int64, categoryID *uuid.UUID, payerMode PayerMode, payerUserID *uuid.UUID, date time.Time, comment *string, createdBy uuid.UUID, createdAt, updatedAt time.Time) (*Transaction, error) {
 	switch txType {
-	case TypeIncome, TypeExpense:
+	case TypeIncome:
+		if categoryID != nil {
+			return nil, ErrCategoryNotAllowedForIncome
+		}
+	case TypeExpense:
+		if categoryID == nil {
+			return nil, ErrCategoryRequiredForExpense
+		}
 	default:
 		return nil, ErrInvalidType
 	}

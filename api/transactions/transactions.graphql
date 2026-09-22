@@ -40,7 +40,8 @@ type Transaction {
     id: UUID!
     type: TransactionType!
     amount: Money!
-    category: Category!
+    "Категория расхода; null для type = INCOME — доходы категорий не имеют."
+    category: Category
     payer: Payer!
     date: DateTime!
     comment: String
@@ -62,7 +63,8 @@ type TransactionList {
 input CreateTransactionInput {
     type: TransactionType!
     amount: MoneyInput!
-    categoryId: UUID!
+    "Обязателен для type = EXPENSE; должен отсутствовать для type = INCOME."
+    categoryId: UUID
     payer: PayerInput!
     date: DateTime!
     comment: String

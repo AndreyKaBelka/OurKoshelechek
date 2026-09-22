@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"OurKoshelechek/graph/model"
+	"OurKoshelechek/internal/domain/category"
 	"OurKoshelechek/internal/domain/transaction"
 	"OurKoshelechek/internal/mapper"
 )
@@ -42,9 +43,12 @@ func (s *TransactionService) Create(ctx context.Context, groupID uuid.UUID, inpu
 		return nil, err
 	}
 
-	cat, err := s.repositories.Category.GetByID(ctx, groupID, input.CategoryID)
-	if err != nil {
-		return nil, fmt.Errorf("load category %s: %w", input.CategoryID, err)
+	var cat *category.Category
+	if input.CategoryID != nil {
+		cat, err = s.repositories.Category.GetByID(ctx, groupID, *input.CategoryID)
+		if err != nil {
+			return nil, fmt.Errorf("load category %s: %w", *input.CategoryID, err)
+		}
 	}
 
 	t, err := mapper.ToDomainTransactionFromInput(input, createdBy, groupID)
@@ -108,14 +112,17 @@ func (s *TransactionService) Update(ctx context.Context, groupID, transactionID 
 
 	newCategoryID := existing.CategoryID
 	if input.CategoryID != nil {
-		newCategoryID = *input.CategoryID
+		newCategoryID = input.CategoryID
 	}
 	// Validated before the DB write below: if newCategoryID doesn't belong to
 	// groupID, this must fail before Transaction.Update persists it, not
 	// after the surrounding transaction has already committed.
-	cat, err := s.repositories.Category.GetByID(ctx, groupID, newCategoryID)
-	if err != nil {
-		return nil, fmt.Errorf("load category %s: %w", newCategoryID, err)
+	var cat *category.Category
+	if newCategoryID != nil {
+		cat, err = s.repositories.Category.GetByID(ctx, groupID, *newCategoryID)
+		if err != nil {
+			return nil, fmt.Errorf("load category %s: %w", *newCategoryID, err)
+		}
 	}
 
 	newDate := existing.Date
@@ -284,9 +291,12 @@ func (s *TransactionService) List(ctx context.Context, groupID uuid.UUID, filter
 		Total:   total,
 	}
 	for _, t := range items {
-		cat, err := s.repositories.Category.GetByID(ctx, t.GroupID, t.CategoryID)
-		if err != nil {
-			return nil, fmt.Errorf("load category %s: %w", t.CategoryID, err)
+		var cat *category.Category
+		if t.CategoryID != nil {
+			cat, err = s.repositories.Category.GetByID(ctx, t.GroupID, *t.CategoryID)
+			if err != nil {
+				return nil, fmt.Errorf("load category %s: %w", *t.CategoryID, err)
+			}
 		}
 
 		shares, err := s.loadShares(ctx, t)
@@ -314,9 +324,12 @@ func (s *TransactionService) Get(ctx context.Context, groupID, transactionID uui
 		return nil, fmt.Errorf("load transaction %s: %w", transactionID, err)
 	}
 
-	cat, err := s.repositories.Category.GetByID(ctx, groupID, t.CategoryID)
-	if err != nil {
-		return nil, fmt.Errorf("load category %s: %w", t.CategoryID, err)
+	var cat *category.Category
+	if t.CategoryID != nil {
+		cat, err = s.repositories.Category.GetByID(ctx, groupID, *t.CategoryID)
+		if err != nil {
+			return nil, fmt.Errorf("load category %s: %w", *t.CategoryID, err)
+		}
 	}
 
 	shares, err := s.loadShares(ctx, *t)

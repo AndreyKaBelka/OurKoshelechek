@@ -85,7 +85,10 @@ CREATE TABLE transactions
     group_id      UUID             NOT NULL REFERENCES groups (id) ON DELETE CASCADE,
     type          transaction_type NOT NULL,
     amount        BIGINT           NOT NULL,
-    category_id   UUID             NOT NULL REFERENCES categories (id) ON DELETE RESTRICT,
+    -- NULL для type = 'income' (доходы не привязываются к категории);
+    -- обязателен для type = 'expense' — проверяется в приложении.
+    -- ON DELETE SET NULL: удаление категории не должно стирать историю операций.
+    category_id   UUID             REFERENCES categories (id) ON DELETE SET NULL,
     payer_mode    payer_mode       NOT NULL,
     -- Обязателен при payer_mode = 'user', NULL при payer_mode = 'split'
     -- (при 'split' явные суммы участников — в transaction_payer_shares).
@@ -113,19 +116,6 @@ CREATE TABLE transaction_payer_shares
 );
 
 CREATE INDEX idx_transaction_payer_shares_user_id ON transaction_payer_shares (user_id);
-
--- ===== budget: доли распределения расходов между участниками группы за период =====
-
--- period хранится как первое число месяца (соответствует "YYYY-MM" из API).
-CREATE TABLE budget_splits
-(
-    group_id      UUID        NOT NULL REFERENCES groups (id) ON DELETE CASCADE,
-    budget_period DATE        NOT NULL,
-    user_id       UUID        NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-    share_amount  BIGINT      NOT NULL,
-    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (group_id, budget_period, user_id)
-);
 
 -- ===== goals: цели накоплений =====
 
@@ -174,8 +164,6 @@ CREATE INDEX idx_goal_contributions_user_id ON goal_contributions (user_id);
 DROP TABLE IF EXISTS goal_contributions;
 DROP TABLE IF EXISTS goals;
 DROP TYPE IF EXISTS goal_type;
-
-DROP TABLE IF EXISTS budget_splits;
 
 DROP TABLE IF EXISTS transaction_payer_shares;
 DROP TABLE IF EXISTS transactions;

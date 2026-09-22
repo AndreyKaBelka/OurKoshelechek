@@ -50,19 +50,12 @@ type ComplexityRoot struct {
 		Categories     func(childComplexity int) int
 		Free           func(childComplexity int) int
 		Income         func(childComplexity int) int
-		Split          func(childComplexity int) int
 		TotalAllocated func(childComplexity int) int
 	}
 
 	BudgetCategory struct {
-		Amount      func(childComplexity int) int
-		CategoryID  func(childComplexity int) int
-		PctOfIncome func(childComplexity int) int
-	}
-
-	BudgetSplit struct {
-		ShareAmount func(childComplexity int) int
-		UserID      func(childComplexity int) int
+		Amount     func(childComplexity int) int
+		CategoryID func(childComplexity int) int
 	}
 
 	Category struct {
@@ -156,7 +149,6 @@ type ComplexityRoot struct {
 		Login             func(childComplexity int, input model.LoginInput) int
 		Register          func(childComplexity int, input model.RegisterInput) int
 		RemoveMember      func(childComplexity int, groupID uuid.UUID, userID uuid.UUID) int
-		UpdateBudgetSplit func(childComplexity int, groupID uuid.UUID, split []*model.BudgetSplitInput) int
 		UpdateCategory    func(childComplexity int, groupID uuid.UUID, categoryID uuid.UUID, input model.UpdateCategoryInput) int
 		UpdateGoal        func(childComplexity int, groupID uuid.UUID, goalID uuid.UUID, input model.UpdateGoalInput) int
 		UpdateGroup       func(childComplexity int, groupID uuid.UUID, input model.UpdateGroupInput) int
@@ -218,7 +210,6 @@ type ComplexityRoot struct {
 // region    ************************** generated!.gotpl **************************
 
 type MutationResolver interface {
-	UpdateBudgetSplit(ctx context.Context, groupID uuid.UUID, split []*model.BudgetSplitInput) ([]*model.BudgetSplit, error)
 	CreateCategory(ctx context.Context, groupID uuid.UUID, input model.CreateCategoryInput) (*model.Category, error)
 	UpdateCategory(ctx context.Context, groupID uuid.UUID, categoryID uuid.UUID, input model.UpdateCategoryInput) (*model.Category, error)
 	DeleteCategory(ctx context.Context, groupID uuid.UUID, categoryID uuid.UUID) (bool, error)
@@ -305,12 +296,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Budget.Income(childComplexity), true
-	case "Budget.split":
-		if e.ComplexityRoot.Budget.Split == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Budget.Split(childComplexity), true
 	case "Budget.totalAllocated":
 		if e.ComplexityRoot.Budget.TotalAllocated == nil {
 			break
@@ -330,25 +315,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.BudgetCategory.CategoryID(childComplexity), true
-	case "BudgetCategory.pctOfIncome":
-		if e.ComplexityRoot.BudgetCategory.PctOfIncome == nil {
-			break
-		}
-
-		return e.ComplexityRoot.BudgetCategory.PctOfIncome(childComplexity), true
-
-	case "BudgetSplit.shareAmount":
-		if e.ComplexityRoot.BudgetSplit.ShareAmount == nil {
-			break
-		}
-
-		return e.ComplexityRoot.BudgetSplit.ShareAmount(childComplexity), true
-	case "BudgetSplit.userId":
-		if e.ComplexityRoot.BudgetSplit.UserID == nil {
-			break
-		}
-
-		return e.ComplexityRoot.BudgetSplit.UserID(childComplexity), true
 
 	case "Category.id":
 		if e.ComplexityRoot.Category.ID == nil {
@@ -729,17 +695,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.RemoveMember(childComplexity, args["groupId"].(uuid.UUID), args["userId"].(uuid.UUID)), true
-	case "Mutation.updateBudgetSplit":
-		if e.ComplexityRoot.Mutation.UpdateBudgetSplit == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_updateBudgetSplit_args(ctx, rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.ComplexityRoot.Mutation.UpdateBudgetSplit(childComplexity, args["groupId"].(uuid.UUID), args["split"].([]*model.BudgetSplitInput)), true
 	case "Mutation.updateCategory":
 		if e.ComplexityRoot.Mutation.UpdateCategory == nil {
 			break
@@ -1026,7 +981,6 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	opCtx := graphql.GetOperationContext(ctx)
 	ec := newExecutionContext(opCtx, e, make(chan graphql.DeferredResult))
 	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
-		ec.unmarshalInputBudgetSplitInput,
 		ec.unmarshalInputContributeGoalInput,
 		ec.unmarshalInputCreateCategoryInput,
 		ec.unmarshalInputCreateGoalInput,
@@ -1118,47 +1072,32 @@ func newExecutionContext(
 }
 
 var sources = []*ast.Source{
-	{Name: "../api/budget/budget.graphql", Input: `type BudgetSplit {
-    userId: UUID!
-    "Доход, закреплённый за участником."
-    shareAmount: Money!
-}
-
-type BudgetCategory {
+	{Name: "../api/budget/budget.graphql", Input: `type BudgetCategory {
     categoryId: UUID!
-    "Сумма, выделенная на категорию за период (равна её monthlyLimit, если он задан)."
+    "Сумма, выделенная на категорию за период (равна её monthlyLimit)."
     amount: Money!
-    "Доля от общего дохода группы за период, от 0 до 1."
-    pctOfIncome: Float!
 }
 
+"""
+Бюджет — это план расходов по категориям, а не процент от дохода: он не
+требует и не зависит от указания планового дохода. income здесь — только
+справочная величина, посчитанная из фактических INCOME-транзакций за
+период; по факту дохода за период она равна summary.income.total.
+"""
 type Budget {
-    "Суммарный доход группы за период."
+    "Суммарный фактический доход группы за период (справочно, не влияет на план расходов)."
     income: Money!
-    "Разбивка дохода по долям участников."
-    split: [BudgetSplit!]!
     "Разбивка расходов по категориям с лимитами."
     categories: [BudgetCategory!]!
     "Сумма, уже распределённая по категориям."
     totalAllocated: Money!
-    "Доход за вычетом totalAllocated."
+    "Доход за вычетом totalAllocated; может быть отрицательным."
     free: Money!
 }
 
-"Сумма shareAmount по всем участникам должна быть равна доходу."
-input BudgetSplitInput {
-    userId: UUID!
-    shareAmount: MoneyInput!
-}
-
 extend type Query {
-    "Текущее распределение бюджета за период: доли участников, лимиты по категориям, доход. period в формате YYYY-MM."
+    "Текущий план бюджета за период: лимиты по категориям и справочный доход. period в формате YYYY-MM."
     budget(groupId: UUID!, period: String!): Budget! @requireGroupMembership
-}
-
-extend type Mutation {
-    "Обновить доли распределения расходов между участниками группы. Возвращает ошибку, если сумма долей не равна доходу."
-    updateBudgetSplit(groupId: UUID!, split: [BudgetSplitInput!]!): [BudgetSplit!]! @requireGroupRole(min: MEMBER)
 }
 `, BuiltIn: false},
 	{Name: "../api/categories/categories.graphql", Input: `type Category {
@@ -1445,7 +1384,8 @@ type Transaction {
     id: UUID!
     type: TransactionType!
     amount: Money!
-    category: Category!
+    "Категория расхода; null для type = INCOME — доходы категорий не имеют."
+    category: Category
     payer: Payer!
     date: DateTime!
     comment: String
@@ -1467,7 +1407,8 @@ type TransactionList {
 input CreateTransactionInput {
     type: TransactionType!
     amount: MoneyInput!
-    categoryId: UUID!
+    "Обязателен для type = EXPENSE; должен отсутствовать для type = INCOME."
+    categoryId: UUID
     payer: PayerInput!
     date: DateTime!
     comment: String
@@ -1573,8 +1514,6 @@ func (ec *executionContext) childFields_Budget(ctx context.Context, field graphq
 	switch field.Name {
 	case "income":
 		return ec.fieldContext_Budget_income(ctx, field)
-	case "split":
-		return ec.fieldContext_Budget_split(ctx, field)
 	case "categories":
 		return ec.fieldContext_Budget_categories(ctx, field)
 	case "totalAllocated":
@@ -1591,20 +1530,8 @@ func (ec *executionContext) childFields_BudgetCategory(ctx context.Context, fiel
 		return ec.fieldContext_BudgetCategory_categoryId(ctx, field)
 	case "amount":
 		return ec.fieldContext_BudgetCategory_amount(ctx, field)
-	case "pctOfIncome":
-		return ec.fieldContext_BudgetCategory_pctOfIncome(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type BudgetCategory", field.Name)
-}
-
-func (ec *executionContext) childFields_BudgetSplit(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-	switch field.Name {
-	case "userId":
-		return ec.fieldContext_BudgetSplit_userId(ctx, field)
-	case "shareAmount":
-		return ec.fieldContext_BudgetSplit_shareAmount(ctx, field)
-	}
-	return nil, fmt.Errorf("no field named %q was found under type BudgetSplit", field.Name)
 }
 
 func (ec *executionContext) childFields_Category(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -2211,28 +2138,6 @@ func (ec *executionContext) field_Mutation_removeMember_args(ctx context.Context
 	return args, nil
 }
 
-func (ec *executionContext) field_Mutation_updateBudgetSplit_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "groupId",
-		func(ctx context.Context, v any) (uuid.UUID, error) {
-			return ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
-		})
-	if err != nil {
-		return nil, err
-	}
-	args["groupId"] = arg0
-	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "split",
-		func(ctx context.Context, v any) ([]*model.BudgetSplitInput, error) {
-			return ec.unmarshalNBudgetSplitInput2ᚕᚖOurKoshelechekᚋgraphᚋmodelᚐBudgetSplitInputᚄ(ctx, v)
-		})
-	if err != nil {
-		return nil, err
-	}
-	args["split"] = arg1
-	return args, nil
-}
-
 func (ec *executionContext) field_Mutation_updateCategory_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -2688,38 +2593,6 @@ func (ec *executionContext) fieldContext_Budget_income(_ context.Context, field 
 	return fc, nil
 }
 
-func (ec *executionContext) _Budget_split(ctx context.Context, field graphql.CollectedField, obj *model.Budget) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Budget_split(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Split, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*model.BudgetSplit) graphql.Marshaler {
-			return ec.marshalNBudgetSplit2ᚕᚖOurKoshelechekᚋgraphᚋmodelᚐBudgetSplitᚄ(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Budget_split(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Budget",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_BudgetSplit(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
 func (ec *executionContext) _Budget_categories(ctx context.Context, field graphql.CollectedField, obj *model.Budget) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2861,84 +2734,6 @@ func (ec *executionContext) _BudgetCategory_amount(ctx context.Context, field gr
 func (ec *executionContext) fieldContext_BudgetCategory_amount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "BudgetCategory",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_Money(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _BudgetCategory_pctOfIncome(ctx context.Context, field graphql.CollectedField, obj *model.BudgetCategory) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_BudgetCategory_pctOfIncome(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.PctOfIncome, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
-			return ec.marshalNFloat2float64(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_BudgetCategory_pctOfIncome(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("BudgetCategory", field, false, false, errors.New("field of type Float does not have child fields"))
-}
-
-func (ec *executionContext) _BudgetSplit_userId(ctx context.Context, field graphql.CollectedField, obj *model.BudgetSplit) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_BudgetSplit_userId(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.UserID, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
-			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_BudgetSplit_userId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("BudgetSplit", field, false, false, errors.New("field of type UUID does not have child fields"))
-}
-
-func (ec *executionContext) _BudgetSplit_shareAmount(ctx context.Context, field graphql.CollectedField, obj *model.BudgetSplit) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_BudgetSplit_shareAmount(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.ShareAmount, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *model.Money) graphql.Marshaler {
-			return ec.marshalNMoney2ᚖOurKoshelechekᚋgraphᚋmodelᚐMoney(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_BudgetSplit_shareAmount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "BudgetSplit",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
@@ -3988,68 +3783,6 @@ func (ec *executionContext) _Money_amount(ctx context.Context, field graphql.Col
 }
 func (ec *executionContext) fieldContext_Money_amount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Money", field, false, false, errors.New("field of type Int does not have child fields"))
-}
-
-func (ec *executionContext) _Mutation_updateBudgetSplit(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Mutation_updateBudgetSplit(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Mutation().UpdateBudgetSplit(ctx, fc.Args["groupId"].(uuid.UUID), fc.Args["split"].([]*model.BudgetSplitInput))
-		},
-		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
-			directive0 := next
-
-			directive1 := func(ctx context.Context) (any, error) {
-				min, err := ec.unmarshalNGroupRole2OurKoshelechekᚋgraphᚋmodelᚐGroupRole(ctx, "MEMBER")
-				if err != nil {
-					var zeroVal []*model.BudgetSplit
-					return zeroVal, err
-				}
-				if ec.Directives.RequireGroupRole == nil {
-					var zeroVal []*model.BudgetSplit
-					return zeroVal, errors.New("directive requireGroupRole is not implemented")
-				}
-				return ec.Directives.RequireGroupRole(ctx, nil, directive0, min)
-			}
-
-			next = directive1
-			return next
-		},
-		func(ctx context.Context, selections ast.SelectionSet, v []*model.BudgetSplit) graphql.Marshaler {
-			return ec.marshalNBudgetSplit2ᚕᚖOurKoshelechekᚋgraphᚋmodelᚐBudgetSplitᚄ(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Mutation_updateBudgetSplit(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Mutation",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_BudgetSplit(ctx, field)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_updateBudgetSplit_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
 }
 
 func (ec *executionContext) _Mutation_createCategory(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -5833,10 +5566,10 @@ func (ec *executionContext) _Transaction_category(ctx context.Context, field gra
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *model.Category) graphql.Marshaler {
-			return ec.marshalNCategory2ᚖOurKoshelechekᚋgraphᚋmodelᚐCategory(ctx, selections, v)
+			return ec.marshalOCategory2ᚖOurKoshelechekᚋgraphᚋmodelᚐCategory(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_Transaction_category(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -7182,43 +6915,6 @@ func (ec *executionContext) fieldContext___Type_isOneOf(_ context.Context, field
 
 // region    **************************** input.gotpl *****************************
 
-func (ec *executionContext) unmarshalInputBudgetSplitInput(ctx context.Context, obj any) (model.BudgetSplitInput, error) {
-	var it model.BudgetSplitInput
-	if obj == nil {
-		return it, nil
-	}
-
-	asMap := map[string]any{}
-	for k, v := range obj.(map[string]any) {
-		asMap[k] = v
-	}
-
-	fieldsInOrder := [...]string{"userId", "shareAmount"}
-	for _, k := range fieldsInOrder {
-		v, ok := asMap[k]
-		if !ok {
-			continue
-		}
-		switch k {
-		case "userId":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("userId"))
-			data, err := ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.UserID = data
-		case "shareAmount":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("shareAmount"))
-			data, err := ec.unmarshalNMoneyInput2ᚖOurKoshelechekᚋgraphᚋmodelᚐMoneyInput(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.ShareAmount = data
-		}
-	}
-	return it, nil
-}
-
 func (ec *executionContext) unmarshalInputContributeGoalInput(ctx context.Context, obj any) (model.ContributeGoalInput, error) {
 	var it model.ContributeGoalInput
 	if obj == nil {
@@ -7415,7 +7111,7 @@ func (ec *executionContext) unmarshalInputCreateTransactionInput(ctx context.Con
 			it.Amount = data
 		case "categoryId":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("categoryId"))
-			data, err := ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+			data, err := ec.unmarshalOUUID2ᚖgithubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -7982,11 +7678,6 @@ func (ec *executionContext) _Budget(ctx context.Context, sel ast.SelectionSet, o
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "split":
-			out.Values[i] = ec._Budget_split(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
 		case "categories":
 			out.Values[i] = ec._Budget_categories(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -8042,54 +7733,6 @@ func (ec *executionContext) _BudgetCategory(ctx context.Context, sel ast.Selecti
 			}
 		case "amount":
 			out.Values[i] = ec._BudgetCategory_amount(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "pctOfIncome":
-			out.Values[i] = ec._BudgetCategory_pctOfIncome(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
-
-	ec.ProcessDeferredGroup(graphql.DeferredGroup{
-		Defers:   deferLabelToView,
-		Path:     graphql.GetPath(ctx),
-		FieldSet: deferredFieldSet,
-		Context:  ctx,
-	})
-
-	return out
-}
-
-var budgetSplitImplementors = []string{"BudgetSplit"}
-
-func (ec *executionContext) _BudgetSplit(ctx context.Context, sel ast.SelectionSet, obj *model.BudgetSplit) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, budgetSplitImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferredFieldSet := graphql.NewFieldSet(nil)
-	deferLabelToView := make(map[string]*graphql.FieldSetView)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("BudgetSplit")
-		case "userId":
-			out.Values[i] = ec._BudgetSplit_userId(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "shareAmount":
-			out.Values[i] = ec._BudgetSplit_shareAmount(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -8758,13 +8401,6 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Mutation")
-		case "updateBudgetSplit":
-			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_updateBudgetSplit(ctx, field)
-			})
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
 		case "createCategory":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_createCategory(ctx, field)
@@ -9315,7 +8951,7 @@ func (ec *executionContext) _Transaction(ctx context.Context, sel ast.SelectionS
 			}
 		case "category":
 			out.Values[i] = ec._Transaction_category(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		case "payer":
@@ -9914,51 +9550,6 @@ func (ec *executionContext) marshalNBudgetCategory2ᚖOurKoshelechekᚋgraphᚋm
 	return ec._BudgetCategory(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNBudgetSplit2ᚕᚖOurKoshelechekᚋgraphᚋmodelᚐBudgetSplitᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.BudgetSplit) graphql.Marshaler {
-	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
-		fc := graphql.GetFieldContext(ctx)
-		fc.Result = &v[i]
-		return ec.marshalNBudgetSplit2ᚖOurKoshelechekᚋgraphᚋmodelᚐBudgetSplit(ctx, sel, v[i])
-	})
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
-}
-
-func (ec *executionContext) marshalNBudgetSplit2ᚖOurKoshelechekᚋgraphᚋmodelᚐBudgetSplit(ctx context.Context, sel ast.SelectionSet, v *model.BudgetSplit) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._BudgetSplit(ctx, sel, v)
-}
-
-func (ec *executionContext) unmarshalNBudgetSplitInput2ᚕᚖOurKoshelechekᚋgraphᚋmodelᚐBudgetSplitInputᚄ(ctx context.Context, v any) ([]*model.BudgetSplitInput, error) {
-	vSlice := graphql.CoerceList(v)
-	var err error
-	res := make([]*model.BudgetSplitInput, len(vSlice))
-	for i := range vSlice {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
-		res[i], err = ec.unmarshalNBudgetSplitInput2ᚖOurKoshelechekᚋgraphᚋmodelᚐBudgetSplitInput(ctx, vSlice[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return res, nil
-}
-
-func (ec *executionContext) unmarshalNBudgetSplitInput2ᚖOurKoshelechekᚋgraphᚋmodelᚐBudgetSplitInput(ctx context.Context, v any) (*model.BudgetSplitInput, error) {
-	res, err := ec.unmarshalInputBudgetSplitInput(ctx, v)
-	return &res, graphql.ErrorOnPath(ctx, err)
-}
-
 func (ec *executionContext) marshalNCategory2ᚕᚖOurKoshelechekᚋgraphᚋmodelᚐCategoryᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Category) graphql.Marshaler {
 	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
 		fc := graphql.GetFieldContext(ctx)
@@ -10060,22 +9651,6 @@ func (ec *executionContext) marshalNExpenseSummary2ᚖOurKoshelechekᚋgraphᚋm
 		return graphql.Null
 	}
 	return ec._ExpenseSummary(ctx, sel, v)
-}
-
-func (ec *executionContext) unmarshalNFloat2float64(ctx context.Context, v any) (float64, error) {
-	res, err := graphql.UnmarshalFloatContext(ctx, v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalNFloat2float64(ctx context.Context, sel ast.SelectionSet, v float64) graphql.Marshaler {
-	_ = sel
-	res := graphql.MarshalFloatContext(v)
-	if res == graphql.Null {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
-		}
-	}
-	return graphql.WrapContextMarshaler(ctx, res)
 }
 
 func (ec *executionContext) marshalNGoal2ᚕᚖOurKoshelechekᚋgraphᚋmodelᚐGoalᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Goal) graphql.Marshaler {
@@ -10640,6 +10215,13 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 	_ = ctx
 	res := graphql.MarshalBoolean(*v)
 	return res
+}
+
+func (ec *executionContext) marshalOCategory2ᚖOurKoshelechekᚋgraphᚋmodelᚐCategory(ctx context.Context, sel ast.SelectionSet, v *model.Category) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._Category(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalODateTime2ᚖtimeᚐTime(ctx context.Context, v any) (*time.Time, error) {

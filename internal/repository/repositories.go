@@ -6,7 +6,6 @@ package repository
 import (
 	"context"
 
-	"OurKoshelechek/internal/domain/budget"
 	"OurKoshelechek/internal/domain/category"
 	"OurKoshelechek/internal/domain/goal"
 	"OurKoshelechek/internal/domain/group"
@@ -23,7 +22,6 @@ type Repositories struct {
 	Category     *category.Repository
 	Transaction  *transaction.Repository
 	PayerShare   *transaction.PayerShareRepository
-	Budget       *budget.Repository
 	Goal         *goal.Repository
 	Contribution *goal.ContributionRepository
 }
@@ -37,7 +35,6 @@ func New(db platform.DBTX) Repositories {
 		Category:     category.New(db),
 		Transaction:  transaction.New(db),
 		PayerShare:   transaction.NewPayerShareRepository(db),
-		Budget:       budget.New(db),
 		Goal:         goal.New(db),
 		Contribution: goal.NewContributionRepository(db),
 	}

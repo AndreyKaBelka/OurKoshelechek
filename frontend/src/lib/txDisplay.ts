@@ -10,7 +10,7 @@ export interface TxMember {
 export interface TxLike {
   type: "INCOME" | "EXPENSE";
   amount: { amount: number };
-  category: { name: string };
+  category: { name: string } | null;
   payer: { mode: "USER" | "SPLIT"; userId: string | null; shares: { userId: string; amount: { amount: number } }[] | null };
   date: string;
   comment: string | null;
@@ -23,7 +23,7 @@ function memberLabel(userId: string | null | undefined, members: TxMember[], cur
 }
 
 export function txTitle(t: TxLike): string {
-  return t.comment || t.category.name;
+  return t.comment || t.category?.name || (t.type === "INCOME" ? "Доход" : "Без категории");
 }
 
 export function txMeta(t: TxLike, members: TxMember[], currentUserId: string | undefined): string {

@@ -135,7 +135,7 @@ export function OverviewScreen({ onNavigate }: { onNavigate: (screen: Screen) =>
           {recent.map((t) => (
             <div key={t.id} className="tx-row">
               <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                <div className="tx-icon"><TwoPathIcon paths={categoryIcon(t.category.name)} size={13} /></div>
+                <div className="tx-icon"><TwoPathIcon paths={categoryIcon(t.category?.name ?? "Зарплата")} size={13} /></div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
                   <span className="tx-title">{txTitle(t)}</span>
                   <span className="tx-meta">{txMeta(t, members, currentUserId)}</span>

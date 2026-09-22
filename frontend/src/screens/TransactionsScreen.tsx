@@ -49,7 +49,8 @@ export function TransactionsScreen() {
   const sharePartnerK = roublesToKopecks(parseInt(sharePartner.replace(/\D/g, ""), 10) || 0);
   const sharesSum = shareYouK + sharePartnerK;
   const isSplit = payerChoice === "split";
-  const formValid = !!total && !!categoryId && (!isSplit || sharesSum === total);
+  const isIncome = type === "INCOME";
+  const formValid = !!total && (isIncome || !!categoryId) && (!isSplit || sharesSum === total);
 
   if (!activeGroup) return null;
 
@@ -82,7 +83,7 @@ export function TransactionsScreen() {
 
     const result = await createTransaction({
       groupId: activeGroup.id,
-      input: { type, amount: { amount: total }, categoryId, payer, date: `${date}T00:00:00Z`, comment: comment.trim() || null },
+      input: { type, amount: { amount: total }, categoryId: isIncome ? null : categoryId, payer, date: `${date}T00:00:00Z`, comment: comment.trim() || null },
     });
     if (result.error) {
       setError(authErrorMessage(result.error));
@@ -134,15 +135,17 @@ export function TransactionsScreen() {
           <input type="text" className="field" placeholder="Например, продукты во ВкусВилле" value={comment} onChange={(e) => setComment(e.target.value)} />
         </div>
 
-        <div style={{ marginBottom: 14 }}>
-          <label className="field-label">Категория</label>
-          <select className="field" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-            {categories.length === 0 && <option value="">Сначала добавьте категорию в бюджете</option>}
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </div>
+        {!isIncome && (
+          <div style={{ marginBottom: 14 }}>
+            <label className="field-label">Категория</label>
+            <select className="field" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+              {categories.length === 0 && <option value="">Сначала добавьте категорию в бюджете</option>}
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div style={{ marginBottom: 14 }}>
           <label className="field-label">Кто платил</label>
@@ -223,7 +226,7 @@ export function TransactionsScreen() {
           {items.map((t) => (
             <div key={t.id} className="tx-row">
               <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                <div className="tx-icon"><TwoPathIcon paths={categoryIcon(t.category.name)} size={13} /></div>
+                <div className="tx-icon"><TwoPathIcon paths={categoryIcon(t.category?.name ?? "Зарплата")} size={13} /></div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
                   <span className="tx-title">{txTitle(t)}</span>
                   <span className="tx-meta">{txMeta(t, members, currentUserId)}</span>

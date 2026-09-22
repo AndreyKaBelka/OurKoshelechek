@@ -10,7 +10,8 @@ import * as Urql from 'urql';
 export type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
 export type CreateTransactionInput = {
   amount: MoneyInput;
-  categoryId: string;
+  /** Обязателен для type = EXPENSE; должен отсутствовать для type = INCOME. */
+  categoryId?: string | null | undefined;
   comment?: string | null | undefined;
   date: string;
   payer: PayerInput;
@@ -61,7 +62,7 @@ export type TransactionsQueryVariables = Exact<{
 }>;
 
 
-export type TransactionsQuery = { transactions: { hasMore: boolean, total: number, items: Array<{ id: string, type: Types.TransactionType, date: string, comment: string | null, createdBy: string, createdAt: string, amount: { amount: number }, category: { id: string, name: string, icon: string }, payer: { mode: Types.PayerMode, userId: string | null, shares: Array<{ userId: string, amount: { amount: number } }> | null } }> } };
+export type TransactionsQuery = { transactions: { hasMore: boolean, total: number, items: Array<{ id: string, type: Types.TransactionType, date: string, comment: string | null, createdBy: string, createdAt: string, amount: { amount: number }, category: { id: string, name: string, icon: string } | null, payer: { mode: Types.PayerMode, userId: string | null, shares: Array<{ userId: string, amount: { amount: number } }> | null } }> } };
 
 export type CreateTransactionMutationVariables = Exact<{
   groupId: string;
@@ -69,7 +70,7 @@ export type CreateTransactionMutationVariables = Exact<{
 }>;
 
 
-export type CreateTransactionMutation = { createTransaction: { id: string, type: Types.TransactionType, date: string, comment: string | null, createdBy: string, createdAt: string, amount: { amount: number }, category: { id: string, name: string, icon: string }, payer: { mode: Types.PayerMode, userId: string | null, shares: Array<{ userId: string, amount: { amount: number } }> | null } } };
+export type CreateTransactionMutation = { createTransaction: { id: string, type: Types.TransactionType, date: string, comment: string | null, createdBy: string, createdAt: string, amount: { amount: number }, category: { id: string, name: string, icon: string } | null, payer: { mode: Types.PayerMode, userId: string | null, shares: Array<{ userId: string, amount: { amount: number } }> | null } } };
 
 
 export const TransactionsDocument = gql`

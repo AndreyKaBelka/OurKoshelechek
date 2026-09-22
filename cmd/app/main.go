@@ -72,7 +72,7 @@ func run(log *slog.Logger) error {
 		TransactionService: service.NewTransactionService(&repos, uow),
 		UserService:        service.NewUserService(repos.User, auth),
 		GroupService:       service.NewGroupService(&repos, uow),
-		BudgetService:      service.NewBudgetService(&repos, uow),
+		BudgetService:      service.NewBudgetService(&repos),
 		GoalService:        service.NewGoalService(&repos, uow),
 		SummaryService:     service.NewSummaryService(repos.Transaction),
 	}

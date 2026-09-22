@@ -115,9 +115,9 @@ func ToDomainTransaction(m *model.Transaction, groupID uuid.UUID, updatedAt time
 		amount = m.Amount.Amount
 	}
 
-	var categoryID uuid.UUID
+	var categoryID *uuid.UUID
 	if m.Category != nil {
-		categoryID = m.Category.ID
+		categoryID = &m.Category.ID
 	}
 
 	var payerMode transaction.PayerMode

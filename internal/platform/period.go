@@ -10,9 +10,7 @@ import (
 var ErrInvalidPeriod = errors.New("period must be in YYYY-MM format")
 
 // ParsePeriod parses a "YYYY-MM" period (as used by the budget/summary
-// queries) into a half-open UTC date range [from, to) spanning that month,
-// and the budget_period DATE value (the first of that month) stored by
-// budget_splits.
+// queries) into a half-open UTC date range [from, to) spanning that month.
 func ParsePeriod(period string) (from, to time.Time, err error) {
 	from, err = time.Parse("2006-01", period)
 	if err != nil {

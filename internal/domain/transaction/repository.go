@@ -207,12 +207,14 @@ type CategoryAmount struct {
 
 // SumAmountByCategory returns, for each category with at least one matching
 // row, the total amount of txType transactions for groupID with date in the
-// half-open range [from, to), grouped by category.
+// half-open range [from, to), grouped by category. Rows left uncategorized
+// (category_id NULL, e.g. after their category was deleted) are excluded —
+// there's no BudgetCategory for them to attach to.
 func (r *Repository) SumAmountByCategory(ctx context.Context, groupID uuid.UUID, txType Type, from, to time.Time) ([]CategoryAmount, error) {
 	rows, err := r.db.Query(ctx, `
 		SELECT category_id, sum(amount)
 		FROM transactions
-		WHERE group_id = $1 AND type = $2 AND date >= $3 AND date < $4
+		WHERE group_id = $1 AND type = $2 AND date >= $3 AND date < $4 AND category_id IS NOT NULL
 		GROUP BY category_id
 		ORDER BY category_id
 	`, groupID, txType, from, to)

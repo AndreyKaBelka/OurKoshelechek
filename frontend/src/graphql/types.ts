@@ -22,40 +22,29 @@ export type AuthPayload = {
   tokenType: Scalars['String']['output'];
 };
 
+/**
+ * Бюджет — это план расходов по категориям, а не процент от дохода: он не
+ * требует и не зависит от указания планового дохода. income здесь — только
+ * справочная величина, посчитанная из фактических INCOME-транзакций за
+ * период; по факту дохода за период она равна summary.income.total.
+ */
 export type Budget = {
   __typename?: 'Budget';
   /** Разбивка расходов по категориям с лимитами. */
   categories: Array<BudgetCategory>;
-  /** Доход за вычетом totalAllocated. */
+  /** Доход за вычетом totalAllocated; может быть отрицательным. */
   free: Money;
-  /** Суммарный доход группы за период. */
+  /** Суммарный фактический доход группы за период (справочно, не влияет на план расходов). */
   income: Money;
-  /** Разбивка дохода по долям участников. */
-  split: Array<BudgetSplit>;
   /** Сумма, уже распределённая по категориям. */
   totalAllocated: Money;
 };
 
 export type BudgetCategory = {
   __typename?: 'BudgetCategory';
-  /** Сумма, выделенная на категорию за период (равна её monthlyLimit, если он задан). */
+  /** Сумма, выделенная на категорию за период (равна её monthlyLimit). */
   amount: Money;
   categoryId: Scalars['UUID']['output'];
-  /** Доля от общего дохода группы за период, от 0 до 1. */
-  pctOfIncome: Scalars['Float']['output'];
-};
-
-export type BudgetSplit = {
-  __typename?: 'BudgetSplit';
-  /** Доход, закреплённый за участником. */
-  shareAmount: Money;
-  userId: Scalars['UUID']['output'];
-};
-
-/** Сумма shareAmount по всем участникам должна быть равна доходу. */
-export type BudgetSplitInput = {
-  shareAmount: MoneyInput;
-  userId: Scalars['UUID']['input'];
 };
 
 export type Category = {
@@ -100,7 +89,8 @@ export type CreateGroupInput = {
 
 export type CreateTransactionInput = {
   amount: MoneyInput;
-  categoryId: Scalars['UUID']['input'];
+  /** Обязателен для type = EXPENSE; должен отсутствовать для type = INCOME. */
+  categoryId?: InputMaybe<Scalars['UUID']['input']>;
   comment?: InputMaybe<Scalars['String']['input']>;
   date: Scalars['DateTime']['input'];
   payer: PayerInput;
@@ -254,8 +244,6 @@ export type Mutation = {
   register: AuthPayload;
   /** Удалить участника из группы. */
   removeMember: Scalars['Boolean']['output'];
-  /** Обновить доли распределения расходов между участниками группы. Возвращает ошибку, если сумма долей не равна доходу. */
-  updateBudgetSplit: Array<BudgetSplit>;
   /** Изменить категорию, включая месячный лимит. */
   updateCategory: Category;
   /** Изменить параметры цели (тип и владельца изменить нельзя). */
@@ -337,12 +325,6 @@ export type MutationRemoveMemberArgs = {
 };
 
 
-export type MutationUpdateBudgetSplitArgs = {
-  groupId: Scalars['UUID']['input'];
-  split: Array<BudgetSplitInput>;
-};
-
-
 export type MutationUpdateCategoryArgs = {
   categoryId: Scalars['UUID']['input'];
   groupId: Scalars['UUID']['input'];
@@ -405,7 +387,7 @@ export type PayerShareInput = {
 
 export type Query = {
   __typename?: 'Query';
-  /** Текущее распределение бюджета за период: доли участников, лимиты по категориям, доход. period в формате YYYY-MM. */
+  /** Текущий план бюджета за период: лимиты по категориям и справочный доход. period в формате YYYY-MM. */
   budget: Budget;
   /** Список категорий группы (дефолтные + пользовательские). */
   categories: Array<Category>;
@@ -484,7 +466,8 @@ export type RegisterInput = {
 export type Transaction = {
   __typename?: 'Transaction';
   amount: Money;
-  category: Category;
+  /** Категория расхода; null для type = INCOME — доходы категорий не имеют. */
+  category?: Maybe<Category>;
   comment?: Maybe<Scalars['String']['output']>;
   createdAt: Scalars['DateTime']['output'];
   /** Пользователь, создавший операцию (может отличаться от payer). */

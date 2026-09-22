@@ -10,6 +10,12 @@ query Summary($groupId: UUID!, $period: String!) {
       total {
         amount
       }
+      byMember {
+        userId
+        amount {
+          amount
+        }
+      }
     }
     expense {
       total {

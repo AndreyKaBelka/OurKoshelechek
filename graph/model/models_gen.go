@@ -20,37 +20,25 @@ type AuthPayload struct {
 	ExpiresIn int `json:"expiresIn"`
 }
 
+// Бюджет — это план расходов по категориям, а не процент от дохода: он не
+// требует и не зависит от указания планового дохода. income здесь — только
+// справочная величина, посчитанная из фактических INCOME-транзакций за
+// период; по факту дохода за период она равна summary.income.total.
 type Budget struct {
-	// Суммарный доход группы за период.
+	// Суммарный фактический доход группы за период (справочно, не влияет на план расходов).
 	Income *Money `json:"income"`
-	// Разбивка дохода по долям участников.
-	Split []*BudgetSplit `json:"split"`
 	// Разбивка расходов по категориям с лимитами.
 	Categories []*BudgetCategory `json:"categories"`
 	// Сумма, уже распределённая по категориям.
 	TotalAllocated *Money `json:"totalAllocated"`
-	// Доход за вычетом totalAllocated.
+	// Доход за вычетом totalAllocated; может быть отрицательным.
 	Free *Money `json:"free"`
 }
 
 type BudgetCategory struct {
 	CategoryID uuid.UUID `json:"categoryId"`
-	// Сумма, выделенная на категорию за период (равна её monthlyLimit, если он задан).
+	// Сумма, выделенная на категорию за период (равна её monthlyLimit).
 	Amount *Money `json:"amount"`
-	// Доля от общего дохода группы за период, от 0 до 1.
-	PctOfIncome float64 `json:"pctOfIncome"`
-}
-
-type BudgetSplit struct {
-	UserID uuid.UUID `json:"userId"`
-	// Доход, закреплённый за участником.
-	ShareAmount *Money `json:"shareAmount"`
-}
-
-// Сумма shareAmount по всем участникам должна быть равна доходу.
-type BudgetSplitInput struct {
-	UserID      uuid.UUID   `json:"userId"`
-	ShareAmount *MoneyInput `json:"shareAmount"`
 }
 
 type Category struct {
@@ -92,12 +80,13 @@ type CreateGroupInput struct {
 }
 
 type CreateTransactionInput struct {
-	Type       TransactionType `json:"type"`
-	Amount     *MoneyInput     `json:"amount"`
-	CategoryID uuid.UUID       `json:"categoryId"`
-	Payer      *PayerInput     `json:"payer"`
-	Date       time.Time       `json:"date"`
-	Comment    *string         `json:"comment,omitempty"`
+	Type   TransactionType `json:"type"`
+	Amount *MoneyInput     `json:"amount"`
+	// Обязателен для type = EXPENSE; должен отсутствовать для type = INCOME.
+	CategoryID *uuid.UUID  `json:"categoryId,omitempty"`
+	Payer      *PayerInput `json:"payer"`
+	Date       time.Time   `json:"date"`
+	Comment    *string     `json:"comment,omitempty"`
 }
 
 type ExpenseSummary struct {
@@ -235,13 +224,14 @@ type RegisterInput struct {
 }
 
 type Transaction struct {
-	ID       uuid.UUID       `json:"id"`
-	Type     TransactionType `json:"type"`
-	Amount   *Money          `json:"amount"`
-	Category *Category       `json:"category"`
-	Payer    *Payer          `json:"payer"`
-	Date     time.Time       `json:"date"`
-	Comment  *string         `json:"comment,omitempty"`
+	ID     uuid.UUID       `json:"id"`
+	Type   TransactionType `json:"type"`
+	Amount *Money          `json:"amount"`
+	// Категория расхода; null для type = INCOME — доходы категорий не имеют.
+	Category *Category `json:"category,omitempty"`
+	Payer    *Payer    `json:"payer"`
+	Date     time.Time `json:"date"`
+	Comment  *string   `json:"comment,omitempty"`
 	// Пользователь, создавший операцию (может отличаться от payer).
 	CreatedBy uuid.UUID `json:"createdBy"`
 	CreatedAt time.Time `json:"createdAt"`

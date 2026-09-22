@@ -10,6 +10,9 @@ import (
 )
 
 func ToModelCategory(c *category.Category) *model.Category {
+	if c == nil {
+		return nil
+	}
 	m := &model.Category{
 		ID:   c.ID,
 		Icon: c.Icon,
