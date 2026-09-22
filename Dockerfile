@@ -17,6 +17,6 @@ RUN apk add --no-cache ca-certificates
 WORKDIR /app
 COPY --from=builder /out/ourkoshelechek .
 
-EXPOSE 8080
+EXPOSE 8081
 
 ENTRYPOINT ["./ourkoshelechek"]

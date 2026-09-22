@@ -4,14 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-"Вдвоём" (OurKoshelechek) — GraphQL backend for a shared-budget app for couples/groups
-(N ≥ 2 members): shared transactions, per-category budgets, expense-split between
-members, and savings goals. Business context and open product questions live in
+"Вдвоём" (OurKoshelechek) — a shared-budget app for couples/groups (N ≥ 2 members):
+shared transactions, per-category budgets, expense-split between members, and savings
+goals. It's a GraphQL backend (Go, this repo's root) plus a React frontend
+(`frontend/`, see below). Business context and open product questions live in
 `docs/BUSINESS_OVERVIEW.md`; a draft REST-style endpoint catalog (predates the move to
 GraphQL, kept as a functional checklist) is in `docs/API_TODO.md`.
-
-The UI does not live in this repo; `design/*.html` are static mockups used as the
-reference spec for what the API needs to support.
 
 ## Commands
 
@@ -43,6 +41,20 @@ signs access tokens (HS256); if unset, `cmd/app/main.go` falls back to an insecu
 hardcoded dev secret and logs a warning — always set it outside local dev.
 
 There is no `.golangci.yml` yet, so `make lint` uses golangci-lint defaults.
+
+Frontend (run from `frontend/`):
+
+```sh
+npm run dev       # vite dev server
+npm run build     # tsc -b && vite build
+npm run lint       # oxlint
+npm run codegen    # graphql-codegen --config codegen.ts (regenerates src/graphql/types.ts
+                    # and per-operation *.generated.ts from api/**/*.graphql + src/**/*.graphql)
+```
+
+`docker-compose.yml`'s `frontend` service builds `frontend/Dockerfile` (nginx serving the
+Vite build) with `VITE_API_URL` baked in at build time (`FRONTEND_API_URL` env var,
+default `/query`, proxied to the `app` service by `frontend/nginx.conf`).
 
 ## Architecture
 
@@ -127,3 +139,25 @@ corresponding `.graphql` file for the contract, extend the matching
 `internal/domain/<name>` package (struct/constructor/repository) if needed, put business
 logic in the matching `internal/service` file, and keep the resolver body a thin
 delegation plus `internal/mapper` conversions.
+
+## Frontend (`frontend/`)
+
+React + TypeScript + Vite, using `urql` as the GraphQL client (see `frontend/src/main.tsx`
+for provider setup: `urqlClient` from `src/graphql/client`, wrapped around an
+`AppStoreProvider` from `src/store/store.tsx`). Structure:
+
+- `src/graphql/operations/*.graphql` — one file per domain area (auth, groups,
+  categories, transactions, budget, goals, summary, health), mirroring the backend's
+  `api/**/*.graphql` split. Each has a colocated `*.generated.ts` produced by
+  `npm run codegen`, which points `graphql-codegen` (`frontend/codegen.ts`) directly at
+  the backend's `api/**/*.graphql` schema — the frontend has no separate schema copy.
+  Re-run codegen after adding/editing an operation or after the backend schema changes.
+- `src/screens/` — one component per top-level screen (Auth, Overview, Transactions,
+  Budget, Goals, Group).
+- `src/store/store.tsx` — app-wide client state (auth/session, etc.) via context.
+- `src/components/` — shared UI pieces (Avatar, BottomSheet, TabBar, InstallBanner).
+- `src/lib/` — helpers (`money.ts` for the same minimal-unit integer amounts the backend
+  uses, `period.ts`, `txDisplay.ts`, `icons.tsx`).
+
+There is no separate `design/*.html` mockup directory anymore — the frontend itself is now
+the reference implementation of the UI.

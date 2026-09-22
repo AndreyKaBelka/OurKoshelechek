@@ -21,7 +21,7 @@ import (
 	"github.com/vektah/gqlparser/v2/ast"
 )
 
-const defaultPort = "8080"
+const defaultPort = "8081"
 const defaultDBDSN = "postgres://postgres:postgres@localhost:5432/ourkoshelechek?sslmode=disable"
 
 // devJWTSecret is used only when JWT_SECRET isn't set, so a fresh dev

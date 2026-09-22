@@ -2,6 +2,24 @@ bin/
 migrate
 .idea/
 .git/
+.gitignore
+.claude/
 *.md
+*.MD
 docs/
 design/
+frontend/
+
+# Env / secrets
+.env
+.env.*
+
+# Go build/test artifacts
+*.test
+*.out
+*.prof
+coverage.out
+coverage.html
+
+# Logs
+*.log
