@@ -178,7 +178,7 @@ export function GroupScreen({ onNavigate }: { onNavigate: (screen: Screen) => vo
                   autoCorrect="off"
                   placeholder="username"
                   value={inviteUsername}
-                  onChange={(e) => { setInviteUsername(e.target.value.replace(/[^a-zA-Z0-9_.]/g, "").toLowerCase()); setInviteMessage(""); }}
+                  onChange={(e) => { setInviteUsername(e.target.value.replace(/[^\p{L}\p{N}_.]/gu, "").toLowerCase()); setInviteMessage(""); }}
                   style={{ flex: 1, border: "none", outline: "none", padding: "12px 6px", fontSize: 13.5, background: "none", minWidth: 0 }}
                 />
               </div>
