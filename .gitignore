@@ -2,6 +2,9 @@
 /bin/
 /migrate
 
+# Postgres backups (see the "backup" service in docker-compose.yml)
+/backups/
+
 # Go
 *.exe
 *.exe~
