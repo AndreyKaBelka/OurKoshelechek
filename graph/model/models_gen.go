@@ -289,6 +289,11 @@ type User struct {
 	Username string    `json:"username"`
 }
 
+type WithdrawFromGoalInput struct {
+	Amount *MoneyInput `json:"amount"`
+	Date   *time.Time  `json:"date,omitempty"`
+}
+
 type GoalType string
 
 const (

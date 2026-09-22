@@ -32,6 +32,11 @@ func (r *mutationResolver) ContributeToGoal(ctx context.Context, groupID uuid.UU
 	return r.GoalService.Contribute(ctx, groupID, goalID, input)
 }
 
+// WithdrawFromGoal is the resolver for the withdrawFromGoal field.
+func (r *mutationResolver) WithdrawFromGoal(ctx context.Context, groupID uuid.UUID, goalID uuid.UUID, input model.WithdrawFromGoalInput) (*model.GoalContribution, error) {
+	return r.GoalService.Withdraw(ctx, groupID, goalID, input)
+}
+
 // Goals is the resolver for the goals field.
 func (r *queryResolver) Goals(ctx context.Context, groupID uuid.UUID) ([]*model.Goal, error) {
 	return r.GoalService.List(ctx, groupID)

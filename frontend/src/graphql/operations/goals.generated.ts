@@ -38,6 +38,11 @@ export type UpdateGoalInput = {
   targetAmount?: MoneyInput | null | undefined;
 };
 
+export type WithdrawFromGoalInput = {
+  amount: MoneyInput;
+  date?: string | null | undefined;
+};
+
 export type GoalsQueryVariables = Exact<{
   groupId: string;
 }>;
@@ -61,6 +66,15 @@ export type ContributeToGoalMutationVariables = Exact<{
 
 
 export type ContributeToGoalMutation = { contributeToGoal: { id: string, goalId: string, date: string, amount: { amount: number } } };
+
+export type WithdrawFromGoalMutationVariables = Exact<{
+  groupId: string;
+  goalId: string;
+  input: Types.WithdrawFromGoalInput;
+}>;
+
+
+export type WithdrawFromGoalMutation = { withdrawFromGoal: { id: string, goalId: string, date: string, amount: { amount: number } } };
 
 export type UpdateGoalMutationVariables = Exact<{
   groupId: string;
@@ -139,6 +153,22 @@ export const ContributeToGoalDocument = gql`
 
 export function useContributeToGoalMutation() {
   return Urql.useMutation<ContributeToGoalMutation, ContributeToGoalMutationVariables>(ContributeToGoalDocument);
+};
+export const WithdrawFromGoalDocument = gql`
+    mutation WithdrawFromGoal($groupId: UUID!, $goalId: UUID!, $input: WithdrawFromGoalInput!) {
+  withdrawFromGoal(groupId: $groupId, goalId: $goalId, input: $input) {
+    id
+    goalId
+    amount {
+      amount
+    }
+    date
+  }
+}
+    `;
+
+export function useWithdrawFromGoalMutation() {
+  return Urql.useMutation<WithdrawFromGoalMutation, WithdrawFromGoalMutationVariables>(WithdrawFromGoalDocument);
 };
 export const UpdateGoalDocument = gql`
     mutation UpdateGoal($groupId: UUID!, $goalId: UUID!, $input: UpdateGoalInput!) {

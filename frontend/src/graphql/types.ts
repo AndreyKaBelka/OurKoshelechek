@@ -254,6 +254,8 @@ export type Mutation = {
   updateGroup: Group;
   /** Отредактировать операцию (частичное обновление). */
   updateTransaction: Transaction;
+  /** Снять деньги с цели (например, из подушки безопасности); нельзя снять больше текущей суммы. Также создаёт операцию-доход, возвращающую сумму в бюджет. */
+  withdrawFromGoal: GoalContribution;
 };
 
 
@@ -351,6 +353,13 @@ export type MutationUpdateTransactionArgs = {
   groupId: Scalars['UUID']['input'];
   input: UpdateTransactionInput;
   transactionId: Scalars['UUID']['input'];
+};
+
+
+export type MutationWithdrawFromGoalArgs = {
+  goalId: Scalars['UUID']['input'];
+  groupId: Scalars['UUID']['input'];
+  input: WithdrawFromGoalInput;
 };
 
 export type Payer = {
@@ -534,4 +543,9 @@ export type User = {
   __typename?: 'User';
   id: Scalars['UUID']['output'];
   username: Scalars['String']['output'];
+};
+
+export type WithdrawFromGoalInput = {
+  amount: MoneyInput;
+  date?: InputMaybe<Scalars['DateTime']['input']>;
 };

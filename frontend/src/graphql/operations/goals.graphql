@@ -43,6 +43,17 @@ mutation ContributeToGoal($groupId: UUID!, $goalId: UUID!, $input: ContributeGoa
   }
 }
 
+mutation WithdrawFromGoal($groupId: UUID!, $goalId: UUID!, $input: WithdrawFromGoalInput!) {
+  withdrawFromGoal(groupId: $groupId, goalId: $goalId, input: $input) {
+    id
+    goalId
+    amount {
+      amount
+    }
+    date
+  }
+}
+
 mutation UpdateGoal($groupId: UUID!, $goalId: UUID!, $input: UpdateGoalInput!) {
   updateGoal(groupId: $groupId, goalId: $goalId, input: $input) {
     id

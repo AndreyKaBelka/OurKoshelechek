@@ -12,6 +12,7 @@ import {
   useDeleteGoalMutation,
   useGoalsQuery,
   useUpdateGoalMutation,
+  useWithdrawFromGoalMutation,
 } from "../graphql/operations/goals.generated";
 import { useSummaryQuery } from "../graphql/operations/summary.generated";
 import type { GoalType } from "../graphql/types";
@@ -33,6 +34,7 @@ export function GoalsScreen() {
   const [, updateGoalMutation] = useUpdateGoalMutation();
   const [, deleteGoalMutation] = useDeleteGoalMutation();
   const [, contributeMutation] = useContributeToGoalMutation();
+  const [, withdrawMutation] = useWithdrawFromGoalMutation();
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
@@ -41,6 +43,7 @@ export function GoalsScreen() {
   const [saved, setSaved] = useState("");
   const [goalType, setGoalType] = useState<GoalType>("SHARED");
   const [sheetGoalId, setSheetGoalId] = useState<string | null>(null);
+  const [sheetMode, setSheetMode] = useState<"topup" | "withdraw">("topup");
   const [topupAmount, setTopupAmount] = useState("");
   const [error, setError] = useState("");
 
@@ -128,12 +131,31 @@ export function GoalsScreen() {
 
   function closeSheet() {
     setSheetGoalId(null);
+    setSheetMode("topup");
     setTopupAmount("");
+  }
+
+  function openSheet(goalId: string, mode: "topup" | "withdraw") {
+    setSheetGoalId(goalId);
+    setSheetMode(mode);
+    setTopupAmount("");
+    setError("");
   }
 
   async function topup(amountK: number) {
     if (!sheetGoalId || !activeGroup || !amountK) return;
     const result = await contributeMutation({ groupId: activeGroup.id, goalId: sheetGoalId, input: { amount: { amount: amountK } } });
+    if (result.error) {
+      setError(authErrorMessage(result.error));
+      return;
+    }
+    setError("");
+    closeSheet();
+  }
+
+  async function withdraw(amountK: number) {
+    if (!sheetGoalId || !activeGroup || !amountK) return;
+    const result = await withdrawMutation({ groupId: activeGroup.id, goalId: sheetGoalId, input: { amount: { amount: amountK } } });
     if (result.error) {
       setError(authErrorMessage(result.error));
       return;
@@ -227,7 +249,12 @@ export function GoalsScreen() {
               {g.type === "SHARED" ? "Общая — поровну" : "Личная"}
               {remain > 0 ? ` · осталось ${formatMoney(remain)} ₽` : current > target ? ` · цель закрыта, сверху ${formatMoney(current - target)} ₽` : " · цель закрыта"}
             </div>
-            <button type="button" className="topup-btn" style={{ border: "1.5px solid var(--forest)", background: "none", color: "var(--forest-dark)", fontWeight: 600, fontSize: 13, padding: "13px 0", borderRadius: 9 }} onClick={() => setSheetGoalId(g.id)}>Пополнить</button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button type="button" className="topup-btn" style={{ flex: 1, border: "1.5px solid var(--forest)", background: "none", color: "var(--forest-dark)", fontWeight: 600, fontSize: 13, padding: "13px 0", borderRadius: 9 }} onClick={() => openSheet(g.id, "topup")}>Пополнить</button>
+              {current > 0 && (
+                <button type="button" className="topup-btn" style={{ flex: 1, border: "1.5px solid var(--border)", background: "none", color: "var(--ink-soft)", fontWeight: 600, fontSize: 13, padding: "13px 0", borderRadius: 9 }} onClick={() => openSheet(g.id, "withdraw")}>Снять</button>
+              )}
+            </div>
           </div>
         );
       })}
@@ -274,28 +301,44 @@ export function GoalsScreen() {
         </BottomSheet>
       )}
 
-      {sheetGoal && (
-        <BottomSheet onClose={closeSheet}>
-          <h2 className="serif" style={{ marginBottom: 4 }}>Пополнить «{sheetGoal.name}»</h2>
-          <p style={{ margin: "0 0 16px", fontSize: 12.5, color: "var(--ink-soft)" }}>Осталось {formatMoney(Math.max(0, sheetGoal.targetAmount.amount - sheetGoal.currentAmount.amount))} ₽ до цели</p>
-          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-            {[5000, 10000, 25000].map((rub) => (
-              <button key={rub} type="button" onClick={() => topup(roublesToKopecks(rub))} style={{ flex: 1, border: "1.5px solid var(--border)", background: "var(--ivory)", color: "var(--ink)", borderRadius: 10, padding: "14px 0", fontSize: 13, fontWeight: 600 }}>
-                +{rub.toLocaleString("ru-RU")}
-              </button>
-            ))}
-          </div>
-          <div style={{ marginBottom: 16 }}>
-            <label className="field-label">Своя сумма</label>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, border: "1px solid var(--border)", borderRadius: 10, padding: "6px 14px" }}>
-              <input type="text" inputMode="numeric" placeholder="0" className="serif" value={topupAmount} onChange={(e) => setTopupAmount(e.target.value.replace(/\D/g, ""))} style={{ flex: 1, border: "none", outline: "none", fontSize: 20, fontWeight: 600, background: "none", minWidth: 0 }} />
-              <span className="serif" style={{ fontSize: 16, color: "var(--ink-faint)" }}>₽</span>
+      {sheetGoal && (() => {
+        const isWithdraw = sheetMode === "withdraw";
+        const currentAmount = sheetGoal.currentAmount.amount;
+        const enteredK = roublesToKopecks(parseInt(topupAmount, 10) || 0);
+        const exceedsCurrent = isWithdraw && enteredK > currentAmount;
+        const quickAmounts = isWithdraw ? [5000, 10000, 25000].filter((rub) => rub * 100 <= currentAmount) : [5000, 10000, 25000];
+        const submit = isWithdraw ? withdraw : topup;
+        return (
+          <BottomSheet onClose={closeSheet}>
+            <h2 className="serif" style={{ marginBottom: 4 }}>{isWithdraw ? "Снять с" : "Пополнить"} «{sheetGoal.name}»</h2>
+            <p style={{ margin: "0 0 16px", fontSize: 12.5, color: "var(--ink-soft)" }}>
+              {isWithdraw ? `Доступно к снятию ${formatMoney(currentAmount)} ₽` : `Осталось ${formatMoney(Math.max(0, sheetGoal.targetAmount.amount - currentAmount))} ₽ до цели`}
+            </p>
+            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+              {quickAmounts.map((rub) => (
+                <button key={rub} type="button" onClick={() => setTopupAmount(String(rub))} style={{ flex: 1, border: "1.5px solid var(--border)", background: "var(--ivory)", color: "var(--ink)", borderRadius: 10, padding: "14px 0", fontSize: 13, fontWeight: 600 }}>
+                  {isWithdraw ? "" : "+"}{rub.toLocaleString("ru-RU")}
+                </button>
+              ))}
+              {isWithdraw && currentAmount > 0 && (
+                <button type="button" onClick={() => setTopupAmount(String(Math.round(currentAmount / 100)))} style={{ flex: 1, border: "1.5px solid var(--border)", background: "var(--ivory)", color: "var(--ink)", borderRadius: 10, padding: "14px 0", fontSize: 13, fontWeight: 600 }}>
+                  Всё
+                </button>
+              )}
             </div>
-          </div>
-          <button type="button" className="submit-btn" disabled={!topupAmount} onClick={() => topup(roublesToKopecks(parseInt(topupAmount, 10) || 0))}>Пополнить</button>
-          <button type="button" onClick={closeSheet} style={{ width: "100%", marginTop: 8, border: "none", borderRadius: 11, padding: "13px 0", fontSize: 13.5, fontWeight: 700, color: "var(--ink-soft)", background: "var(--ivory)" }}>Закрыть</button>
-        </BottomSheet>
-      )}
+            <div style={{ marginBottom: 8 }}>
+              <label className="field-label">Своя сумма</label>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, border: `1px solid ${exceedsCurrent ? "var(--partner)" : "var(--border)"}`, borderRadius: 10, padding: "6px 14px" }}>
+                <input type="text" inputMode="numeric" placeholder="0" className="serif" value={topupAmount} onChange={(e) => setTopupAmount(e.target.value.replace(/\D/g, ""))} style={{ flex: 1, border: "none", outline: "none", fontSize: 20, fontWeight: 600, background: "none", minWidth: 0 }} />
+                <span className="serif" style={{ fontSize: 16, color: "var(--ink-faint)" }}>₽</span>
+              </div>
+            </div>
+            {exceedsCurrent && <p style={{ margin: "0 0 8px", fontSize: 12, color: "var(--partner)" }}>Нельзя снять больше, чем отложено в цели</p>}
+            <button type="button" className="submit-btn" disabled={!topupAmount || exceedsCurrent} onClick={() => submit(enteredK)} style={{ marginTop: 8 }}>{isWithdraw ? "Снять" : "Пополнить"}</button>
+            <button type="button" onClick={closeSheet} style={{ width: "100%", marginTop: 8, border: "none", borderRadius: 11, padding: "13px 0", fontSize: 13.5, fontWeight: 700, color: "var(--ink-soft)", background: "var(--ivory)" }}>Закрыть</button>
+          </BottomSheet>
+        );
+      })()}
     </div>
   );
 }

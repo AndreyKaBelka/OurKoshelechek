@@ -43,6 +43,11 @@ input ContributeGoalInput {
     date: DateTime
 }
 
+input WithdrawFromGoalInput {
+    amount: MoneyInput!
+    date: DateTime
+}
+
 extend type Query {
     "Список целей накоплений группы."
     goals(groupId: UUID!): [Goal!]! @requireGroupMembership
@@ -59,4 +64,6 @@ extend type Mutation {
     deleteGoal(groupId: UUID!, goalId: UUID!): Boolean! @requireGroupRole(min: MEMBER)
     "Пополнить цель; также создаёт операцию-расход категории «Накопления»."
     contributeToGoal(groupId: UUID!, goalId: UUID!, input: ContributeGoalInput!): GoalContribution! @requireGroupRole(min: MEMBER)
+    "Снять деньги с цели (например, из подушки безопасности); нельзя снять больше текущей суммы. Также создаёт операцию-доход, возвращающую сумму в бюджет."
+    withdrawFromGoal(groupId: UUID!, goalId: UUID!, input: WithdrawFromGoalInput!): GoalContribution! @requireGroupRole(min: MEMBER)
 }

@@ -125,7 +125,7 @@ func (r *Repository) ListByGroup(ctx context.Context, groupID uuid.UUID) ([]Cate
 		SELECT id, group_id, name, icon, monthly_limit_amount, created_at, updated_at
 		FROM categories
 		WHERE group_id = $1
-		ORDER BY name
+		ORDER BY created_at DESC
 	`, groupID)
 	if err != nil {
 		return nil, fmt.Errorf("select categories: %w", err)

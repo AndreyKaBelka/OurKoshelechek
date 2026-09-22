@@ -82,10 +82,14 @@ func NewGoal(id, groupID uuid.UUID, name string, icon *string, targetAmount int6
 	}, nil
 }
 
-var ErrInvalidAmount = errors.New("contribution amount must be positive")
+// ErrInvalidAmount guards NewContribution's own invariant (amount must be
+// non-zero); a negative amount is valid and represents a withdrawal. Callers
+// that only accept deposits or only accept withdrawals must enforce the sign
+// themselves (see service.GoalService.Contribute/Withdraw).
+var ErrInvalidAmount = errors.New("contribution amount must not be zero")
 
 func NewContribution(id, goalID uuid.UUID, amount int64, userID uuid.UUID, date time.Time, transactionID *uuid.UUID, createdAt time.Time) (*Contribution, error) {
-	if amount <= 0 {
+	if amount == 0 {
 		return nil, ErrInvalidAmount
 	}
 

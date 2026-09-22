@@ -154,6 +154,7 @@ type ComplexityRoot struct {
 		UpdateGoal        func(childComplexity int, groupID uuid.UUID, goalID uuid.UUID, input model.UpdateGoalInput) int
 		UpdateGroup       func(childComplexity int, groupID uuid.UUID, input model.UpdateGroupInput) int
 		UpdateTransaction func(childComplexity int, groupID uuid.UUID, transactionID uuid.UUID, input model.UpdateTransactionInput) int
+		WithdrawFromGoal  func(childComplexity int, groupID uuid.UUID, goalID uuid.UUID, input model.WithdrawFromGoalInput) int
 	}
 
 	Payer struct {
@@ -218,6 +219,7 @@ type MutationResolver interface {
 	UpdateGoal(ctx context.Context, groupID uuid.UUID, goalID uuid.UUID, input model.UpdateGoalInput) (*model.Goal, error)
 	DeleteGoal(ctx context.Context, groupID uuid.UUID, goalID uuid.UUID) (bool, error)
 	ContributeToGoal(ctx context.Context, groupID uuid.UUID, goalID uuid.UUID, input model.ContributeGoalInput) (*model.GoalContribution, error)
+	WithdrawFromGoal(ctx context.Context, groupID uuid.UUID, goalID uuid.UUID, input model.WithdrawFromGoalInput) (*model.GoalContribution, error)
 	CreateGroup(ctx context.Context, input model.CreateGroupInput) (*model.Group, error)
 	UpdateGroup(ctx context.Context, groupID uuid.UUID, input model.UpdateGroupInput) (*model.Group, error)
 	InviteMember(ctx context.Context, groupID uuid.UUID, input model.InviteMemberInput) (*model.InviteResult, error)
@@ -746,6 +748,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.UpdateTransaction(childComplexity, args["groupId"].(uuid.UUID), args["transactionId"].(uuid.UUID), args["input"].(model.UpdateTransactionInput)), true
+	case "Mutation.withdrawFromGoal":
+		if e.ComplexityRoot.Mutation.WithdrawFromGoal == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_withdrawFromGoal_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.WithdrawFromGoal(childComplexity, args["groupId"].(uuid.UUID), args["goalId"].(uuid.UUID), args["input"].(model.WithdrawFromGoalInput)), true
 
 	case "Payer.mode":
 		if e.ComplexityRoot.Payer.Mode == nil {
@@ -1004,6 +1017,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputUpdateGoalInput,
 		ec.unmarshalInputUpdateGroupInput,
 		ec.unmarshalInputUpdateTransactionInput,
+		ec.unmarshalInputWithdrawFromGoalInput,
 	)
 	first := true
 
@@ -1188,6 +1202,11 @@ input ContributeGoalInput {
     date: DateTime
 }
 
+input WithdrawFromGoalInput {
+    amount: MoneyInput!
+    date: DateTime
+}
+
 extend type Query {
     "Список целей накоплений группы."
     goals(groupId: UUID!): [Goal!]! @requireGroupMembership
@@ -1204,6 +1223,8 @@ extend type Mutation {
     deleteGoal(groupId: UUID!, goalId: UUID!): Boolean! @requireGroupRole(min: MEMBER)
     "Пополнить цель; также создаёт операцию-расход категории «Накопления»."
     contributeToGoal(groupId: UUID!, goalId: UUID!, input: ContributeGoalInput!): GoalContribution! @requireGroupRole(min: MEMBER)
+    "Снять деньги с цели (например, из подушки безопасности); нельзя снять больше текущей суммы. Также создаёт операцию-доход, возвращающую сумму в бюджет."
+    withdrawFromGoal(groupId: UUID!, goalId: UUID!, input: WithdrawFromGoalInput!): GoalContribution! @requireGroupRole(min: MEMBER)
 }
 `, BuiltIn: false},
 	{Name: "../api/groups/groups.graphql", Input: `enum GroupRole {
@@ -2253,6 +2274,36 @@ func (ec *executionContext) field_Mutation_updateTransaction_args(ctx context.Co
 	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "input",
 		func(ctx context.Context, v any) (model.UpdateTransactionInput, error) {
 			return ec.unmarshalNUpdateTransactionInput2OurKoshelechekᚋgraphᚋmodelᚐUpdateTransactionInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg2
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_withdrawFromGoal_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "groupId",
+		func(ctx context.Context, v any) (uuid.UUID, error) {
+			return ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["groupId"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "goalId",
+		func(ctx context.Context, v any) (uuid.UUID, error) {
+			return ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["goalId"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.WithdrawFromGoalInput, error) {
+			return ec.unmarshalNWithdrawFromGoalInput2OurKoshelechekᚋgraphᚋmodelᚐWithdrawFromGoalInput(ctx, v)
 		})
 	if err != nil {
 		return nil, err
@@ -4256,6 +4307,68 @@ func (ec *executionContext) fieldContext_Mutation_contributeToGoal(ctx context.C
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_contributeToGoal_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_withdrawFromGoal(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_withdrawFromGoal(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().WithdrawFromGoal(ctx, fc.Args["groupId"].(uuid.UUID), fc.Args["goalId"].(uuid.UUID), fc.Args["input"].(model.WithdrawFromGoalInput))
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				min, err := ec.unmarshalNGroupRole2OurKoshelechekᚋgraphᚋmodelᚐGroupRole(ctx, "MEMBER")
+				if err != nil {
+					var zeroVal *model.GoalContribution
+					return zeroVal, err
+				}
+				if ec.Directives.RequireGroupRole == nil {
+					var zeroVal *model.GoalContribution
+					return zeroVal, errors.New("directive requireGroupRole is not implemented")
+				}
+				return ec.Directives.RequireGroupRole(ctx, nil, directive0, min)
+			}
+
+			next = directive1
+			return next
+		},
+		func(ctx context.Context, selections ast.SelectionSet, v *model.GoalContribution) graphql.Marshaler {
+			return ec.marshalNGoalContribution2ᚖOurKoshelechekᚋgraphᚋmodelᚐGoalContribution(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_withdrawFromGoal(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_GoalContribution(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_withdrawFromGoal_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -7648,6 +7761,43 @@ func (ec *executionContext) unmarshalInputUpdateTransactionInput(ctx context.Con
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputWithdrawFromGoalInput(ctx context.Context, obj any) (model.WithdrawFromGoalInput, error) {
+	var it model.WithdrawFromGoalInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"amount", "date"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "amount":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("amount"))
+			data, err := ec.unmarshalNMoneyInput2ᚖOurKoshelechekᚋgraphᚋmodelᚐMoneyInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Amount = data
+		case "date":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("date"))
+			data, err := ec.unmarshalODateTime2ᚖtimeᚐTime(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Date = data
+		}
+	}
+	return it, nil
+}
+
 // endregion **************************** input.gotpl *****************************
 
 // region    ************************** interface.gotpl ***************************
@@ -8494,6 +8644,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "contributeToGoal":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_contributeToGoal(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "withdrawFromGoal":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_withdrawFromGoal(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -10093,6 +10250,11 @@ func (ec *executionContext) marshalNUser2ᚖOurKoshelechekᚋgraphᚋmodelᚐUse
 		return graphql.Null
 	}
 	return ec._User(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNWithdrawFromGoalInput2OurKoshelechekᚋgraphᚋmodelᚐWithdrawFromGoalInput(ctx context.Context, v any) (model.WithdrawFromGoalInput, error) {
+	res, err := ec.unmarshalInputWithdrawFromGoalInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) marshalN__Directive2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐDirective(ctx context.Context, sel ast.SelectionSet, v introspection.Directive) graphql.Marshaler {

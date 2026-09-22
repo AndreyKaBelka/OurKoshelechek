@@ -25,9 +25,18 @@ const (
 	savingsCategoryIcon = "💰"
 )
 
-// ErrContributionNotFromOwner is returned by Contribute when the
-// contributing user isn't the owner of a PERSONAL goal.
+// ErrContributionNotFromOwner is returned by Contribute/Withdraw when the
+// acting user isn't the owner of a PERSONAL goal.
 var ErrContributionNotFromOwner = errors.New("contribution to a personal goal must come from its owner")
+
+// ErrInvalidContributionAmount is returned by Contribute/Withdraw when the
+// requested amount isn't strictly positive (goal.NewContribution itself only
+// rejects zero, since a withdrawal is stored as a negative amount).
+var ErrInvalidContributionAmount = errors.New("amount must be positive")
+
+// ErrInsufficientGoalFunds is returned by Withdraw when the requested amount
+// exceeds the goal's current saved amount.
+var ErrInsufficientGoalFunds = errors.New("withdrawal amount exceeds goal's current amount")
 
 // GoalService holds the savings-goal business logic that resolvers
 // previously implemented inline: building/validating a Goal, and, for
@@ -152,6 +161,9 @@ func (s *GoalService) Contribute(ctx context.Context, groupID, goalID uuid.UUID,
 	if input.Amount != nil {
 		amount = input.Amount.Amount
 	}
+	if amount <= 0 {
+		return nil, ErrInvalidContributionAmount
+	}
 	date := time.Now()
 	if input.Date != nil {
 		date = *input.Date
@@ -174,6 +186,74 @@ func (s *GoalService) Contribute(ctx context.Context, groupID, goalID uuid.UUID,
 		}
 		if err := repos.Contribution.Create(ctx, *c); err != nil {
 			return fmt.Errorf("create goal contribution: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return mapper.ToModelGoalContribution(c), nil
+}
+
+// Withdraw validates the withdrawal (positive amount, not exceeding the
+// goal's current saved amount, and, for PERSONAL goals, only its owner), then
+// atomically posts an income transaction returning the money to the group's
+// budget alongside a negative-amount contribution record reducing the goal's
+// current amount.
+func (s *GoalService) Withdraw(ctx context.Context, groupID, goalID uuid.UUID, input model.WithdrawFromGoalInput) (*model.GoalContribution, error) {
+	createdBy, err := platform.CurrentUserID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	g, err := s.repositories.Goal.GetByID(ctx, groupID, goalID)
+	if err != nil {
+		return nil, fmt.Errorf("load goal %s: %w", goalID, err)
+	}
+	if g.Type == goal.TypePersonal && g.OwnerUserID != nil && *g.OwnerUserID != createdBy {
+		return nil, ErrContributionNotFromOwner
+	}
+
+	amount := 0
+	if input.Amount != nil {
+		amount = input.Amount.Amount
+	}
+	if amount <= 0 {
+		return nil, ErrInvalidContributionAmount
+	}
+
+	current, err := s.repositories.Contribution.SumByGoal(ctx, goalID)
+	if err != nil {
+		return nil, err
+	}
+	if int64(amount) > current {
+		return nil, ErrInsufficientGoalFunds
+	}
+
+	date := time.Now()
+	if input.Date != nil {
+		date = *input.Date
+	}
+
+	comment := fmt.Sprintf("Снятие с цели «%s»", g.Name)
+	now := time.Now()
+	tx, err := transaction.NewTransaction(platform.NewID(), groupID, transaction.TypeIncome, int64(amount), nil, transaction.PayerModeUser, &createdBy, date, &comment, createdBy, now, now)
+	if err != nil {
+		return nil, err
+	}
+
+	c, err := goal.NewContribution(platform.NewID(), goalID, -int64(amount), createdBy, date, &tx.ID, now)
+	if err != nil {
+		return nil, err
+	}
+
+	err = repository.RunInTx(ctx, s.uow, func(repos repository.Repositories) error {
+		if err := repos.Transaction.Create(ctx, *tx); err != nil {
+			return fmt.Errorf("create withdrawal transaction: %w", err)
+		}
+		if err := repos.Contribution.Create(ctx, *c); err != nil {
+			return fmt.Errorf("create goal withdrawal: %w", err)
 		}
 		return nil
 	})
