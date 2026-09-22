@@ -65,7 +65,7 @@ export function OverviewScreen({ onNavigate }: { onNavigate: (screen: Screen) =>
               <path d="M20 5v5h-5" />
             </svg>
           </div>
-          <span className="serif" style={{ fontSize: 16.5, fontWeight: 600 }}>Вдвоём</span>
+          <span className="serif" style={{ fontSize: 16.5, fontWeight: 600 }}>Кошелё4ек</span>
         </div>
         <button type="button" onClick={() => onNavigate("group")} aria-label="Группа и участники" style={{ display: "flex", alignItems: "center", gap: 7, border: "none", background: "none", padding: "4px 0" }}>
           <div style={{ display: "flex" }}>

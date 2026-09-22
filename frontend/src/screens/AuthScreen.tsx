@@ -36,7 +36,7 @@ export function AuthScreen() {
             <path d="M20 5v5h-5" />
           </svg>
         </div>
-        <span className="serif" style={{ fontSize: 20, fontWeight: 600 }}>Вдвоём</span>
+        <span className="serif" style={{ fontSize: 20, fontWeight: 600 }}>Кошелё4ек</span>
       </div>
       <p style={{ textAlign: "center", margin: 0, fontSize: 12.5, color: "var(--ink-soft)" }}>Общий бюджет для двоих</p>
 
