@@ -7,7 +7,7 @@
   разработки нет → любой пуш в `master` уходит в прод. Пушить только по просьбе владельца.
 - `build`: собирает и пушит в GHCR три образа с тегами `<sha[:12]>` и `latest`:
   `ourkoshelechek-app` (`Dockerfile`), `ourkoshelechek-migrate` (`Dockerfile.migrate`,
-  goose), `ourkoshelechek-frontend` (`frontend/Dockerfile`, `VITE_API_URL` из
+  goose + `COPY db/migrations` — миграции запечены в образ), `ourkoshelechek-frontend` (`frontend/Dockerfile`, `VITE_API_URL` из
   `vars.FRONTEND_API_URL`, по умолчанию `/query`).
 - `deploy` (environment `production`): scp `docker-compose.prod.yml` на сервер →
   по SSH `docker compose pull` → `run --rm migrate` (**goose up на проде при каждом деплое**)
@@ -19,7 +19,7 @@
 | Сервис | Что | Порт |
 |---|---|---|
 | `db` | postgres:16-alpine, volume `pgdata`, healthcheck `pg_isready` | — |
-| `migrate` | goose `-dir /migrations up`, монтирует `./db/migrations` | — |
+| `migrate` | goose `-dir /migrations up`; на проде миграции из образа, локально — монтируется `./db/migrations` | — |
 | `app` | Go-бэкенд, `JWT_SECRET` обязателен (`${JWT_SECRET:?err}`) | `PORT`, 8081 |
 | `frontend` | nginx со сборкой Vite; `/query` проксируется на `app:8081` | `FRONTEND_PORT`, 3000 |
 | `backup` | `prodrigestivill/postgres-backup-local`, дампы в `./backups` | — |
