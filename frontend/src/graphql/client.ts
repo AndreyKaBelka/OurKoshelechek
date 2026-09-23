@@ -1,6 +1,6 @@
 import { Client, cacheExchange, fetchExchange, type CombinedError } from "urql";
 import { authExchange } from "@urql/exchange-auth";
-import { refocusExchange } from "@urql/exchange-refocus";
+import { liveExchange } from "./liveExchange";
 import {
   RefreshTokenDocument,
   type RefreshTokenMutation,
@@ -69,10 +69,10 @@ function createAuthExchange() {
 export function createUrqlClient(): Client {
   return new Client({
     url: API_URL,
-    // Refetches all active queries (network) whenever the tab/app regains visibility —
+    // Refetches all active queries when the app regains focus and periodically while visible —
     // otherwise data added by another group member stays stale until a full reload,
     // which is the only way iOS "Add to Home Screen" users have to force a refresh.
-    exchanges: [refocusExchange(), cacheExchange, createAuthExchange(), fetchExchange],
+    exchanges: [liveExchange(), cacheExchange, createAuthExchange(), fetchExchange],
     preferGetMethod: false,
   });
 }

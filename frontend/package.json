@@ -12,11 +12,11 @@
   },
   "dependencies": {
     "@urql/exchange-auth": "^3.0.0",
-    "@urql/exchange-refocus": "^2.1.0",
     "graphql": "^16.14.2",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "urql": "^5.0.4"
+    "urql": "^5.0.4",
+    "wonka": "^6.3.6"
   },
   "devDependencies": {
     "@graphql-codegen/add": "^7.1.0",
