@@ -94,6 +94,7 @@ export function BudgetScreen({onNavigate}: { onNavigate: (screen: Screen) => voi
     const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
     const [editCategoryName, setEditCategoryName] = useState("");
     const [editCategoryIcon, setEditCategoryIcon] = useState("📦");
+    const [editCategoryLimit, setEditCategoryLimit] = useState("");
     const [editCategorySaving, setEditCategorySaving] = useState(false);
 
     if (!activeGroup) return null;
@@ -139,20 +140,12 @@ export function BudgetScreen({onNavigate}: { onNavigate: (screen: Screen) => voi
         setShowCategoryForm(false);
     }
 
-    async function setLimit(categoryId: string, limitK: number) {
-        const result = await updateCategory({
-            groupId: activeGroup!.id,
-            categoryId,
-            input: {monthlyLimit: {amount: limitK}}
-        });
-        if (result.error) setError(authErrorMessage(result.error));
-    }
-
-    function startEditCategory(categoryId: string, currentName: string, currentIcon: string) {
+    function startEditCategory(categoryId: string, currentName: string, currentIcon: string, currentLimit: number) {
         setError("");
         setEditingCategoryId(categoryId);
         setEditCategoryName(currentName);
         setEditCategoryIcon(currentIcon || "📦");
+        setEditCategoryLimit(kopecksToRoubleInput(currentLimit));
     }
 
     function cancelEditCategory() {
@@ -170,7 +163,7 @@ export function BudgetScreen({onNavigate}: { onNavigate: (screen: Screen) => voi
         const result = await updateCategory({
             groupId: activeGroup!.id,
             categoryId,
-            input: {name, icon: editCategoryIcon},
+            input: {name, icon: editCategoryIcon, monthlyLimit: {amount: parseRoubleInput(editCategoryLimit)}},
         });
 
         setEditCategorySaving(false);
@@ -317,8 +310,8 @@ export function BudgetScreen({onNavigate}: { onNavigate: (screen: Screen) => voi
                                 ) : (
                                     <>
                                         <span style={{flex: 1, fontSize: 14, fontWeight: 600}}>{c.name}</span>
-                                        <button type="button" className="row-trash" aria-label="Переименовать категорию"
-                                                onClick={() => startEditCategory(c.id, c.name, c.icon)}>
+                                        <button type="button" className="row-trash" aria-label="Редактировать категорию"
+                                                onClick={() => startEditCategory(c.id, c.name, c.icon, limit)}>
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                                  strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
                                                 <path d="M12 20h9"/>
@@ -348,15 +341,23 @@ export function BudgetScreen({onNavigate}: { onNavigate: (screen: Screen) => voi
                                 padding: "4px 0 8px 40px"
                             }}>
                                 <span style={{fontSize: 11.5, color: "var(--ink-soft)"}}>{pct}% использовано</span>
-                                <div style={{display: "flex", alignItems: "center", gap: 5}}>
-                                    <AmountInput
-                                        className="amt-input"
-                                        defaultValue={kopecksToRoubleInput(limit)}
-                                        key={`${c.id}-${limit}`}
-                                        onBlur={(e) => setLimit(c.id, parseRoubleInput(e.target.value))}
-                                    />
-                                    <span style={{fontSize: 12, color: "var(--ink-soft)"}}>₽</span>
-                                </div>
+                                {editingCategoryId === c.id ? (
+                                    <div style={{display: "flex", alignItems: "center", gap: 5}}>
+                                        <AmountInput
+                                            className="amt-input"
+                                            placeholder="Лимит"
+                                            value={editCategoryLimit}
+                                            onChange={setEditCategoryLimit}
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter") saveEditCategory(c.id);
+                                                if (e.key === "Escape") cancelEditCategory();
+                                            }}
+                                        />
+                                        <span style={{fontSize: 12, color: "var(--ink-soft)"}}>₽</span>
+                                    </div>
+                                ) : (
+                                    <span style={{fontSize: 13, fontWeight: 600}}>{formatMoney(limit)} ₽</span>
+                                )}
                             </div>
                             <div style={{display: "flex", flexDirection: "column", gap: 6, padding: "0 0 12px 40px"}}>
                                 <div style={{display: "flex", justifyContent: "space-between", fontSize: 12.5}}>
