@@ -57,7 +57,10 @@ context; `ErrUnauthenticated` if nothing was authenticated).
 **Refresh tokens** (`internal/domain/refreshtoken`, table `refresh_tokens`) are opaque
 random strings returned as `AuthPayload.refreshToken` (only their SHA-256 hash is stored,
 TTL 30 days). Single-use: the `refreshToken` mutation atomically revokes the presented one
-and issues a new pair; `logout` revokes it. Auth failures carry
+and issues a new pair; `logout` revokes it. The lifetime is sliding: every rotation issues a
+token with a fresh 30 days, and the client rotates on every app launch (first request of a page
+load, `willAuthError` in `client.ts`) as well as whenever the 15-min access token expires — so
+the user is logged out only after 30 days without opening the app. Auth failures carry
 `extensions.code = "UNAUTHENTICATED"` (`presentError` in `cmd/app/main.go`).
 
 **Authorization** — two directives declared in `api/schema.graphql`, implemented in

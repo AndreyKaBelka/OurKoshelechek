@@ -16,6 +16,19 @@ export interface Session {
   refreshToken: string | null;
 }
 
+// In-memory (per page load, deliberately not persisted): whether this launch of the app has
+// already traded the refresh token for a new pair. Lets the client rotate it once on every
+// app open, so the server-side 30-day lifetime counts from the last visit.
+let sessionFresh = false;
+
+export function isSessionFresh(): boolean {
+  return sessionFresh;
+}
+
+export function markSessionFresh(): void {
+  sessionFresh = true;
+}
+
 export function readSession(): Session | null {
   const accessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
   if (!accessToken) return null;
@@ -28,6 +41,7 @@ export function readSession(): Session | null {
 }
 
 export function saveSession(tokens: AuthTokensFragment): void {
+  sessionFresh = true;
   localStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
   localStorage.setItem(ACCESS_EXPIRES_AT_KEY, String(Date.now() + tokens.expiresIn * 1000));
   localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);

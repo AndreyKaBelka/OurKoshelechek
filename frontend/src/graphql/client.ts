@@ -6,7 +6,7 @@ import {
   type RefreshTokenMutation,
   type RefreshTokenMutationVariables,
 } from "./operations/auth.generated";
-import { SESSION_EXPIRED_EVENT, clearSession, readSession, saveSession } from "./session";
+import { SESSION_EXPIRED_EVENT, clearSession, isSessionFresh, markSessionFresh, readSession, saveSession } from "./session";
 
 // "/query" is same-origin in both dev (proxied to the backend by vite.config.ts)
 // and prod (proxied by nginx, see frontend/nginx.conf).
@@ -20,8 +20,10 @@ export function isUnauthenticated(error: CombinedError): boolean {
   return error.graphQLErrors.some((e) => e.extensions?.code === "UNAUTHENTICATED");
 }
 
-// Short-lived access tokens are renewed transparently: before a request if the stored
-// one is about to expire, or after a request fails with UNAUTHENTICATED (the failed
+// Short-lived access tokens are renewed transparently: before the first request of every app
+// launch (this rotates the refresh token, restarting its 30-day lifetime — so the user is only
+// logged out after 30 days without opening the app), before a request if the stored one is
+// about to expire, or after a request fails with UNAUTHENTICATED (the failed
 // operation is then retried once with the new token).
 function createAuthExchange() {
   return authExchange(async (utils) => ({
@@ -31,13 +33,18 @@ function createAuthExchange() {
     },
     willAuthError() {
       const session = readSession();
-      return !!session?.refreshToken && session.accessExpiresAt !== null && session.accessExpiresAt - EXPIRY_MARGIN_MS < Date.now();
+      if (!session?.refreshToken) return false;
+      if (!isSessionFresh()) return true;
+      return session.accessExpiresAt !== null && session.accessExpiresAt - EXPIRY_MARGIN_MS < Date.now();
     },
     didAuthError: isUnauthenticated,
     async refreshAuth() {
       const refreshToken = readSession()?.refreshToken;
       if (!refreshToken) return;
 
+      // Marked before the call so a failed attempt (offline, other tab won the race) isn't
+      // retried by every request; the expiry check above still covers later renewals.
+      markSessionFresh();
       const result = await utils.mutate<RefreshTokenMutation, RefreshTokenMutationVariables>(RefreshTokenDocument, {
         refreshToken,
       });
