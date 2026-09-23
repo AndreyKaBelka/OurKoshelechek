@@ -6,21 +6,23 @@ type MemberAmount {
 type CategoryAmount {
     categoryId: UUID!
     amount: Money!
+    "Разбивка расхода категории по участникам (учитывает доли в разделённых операциях)."
+    byMember: [MemberAmount!]!
 }
 
 type IncomeSummary {
-    "Суммарный доход группы за период."
+    "Суммарный доход группы за период (без переводов между участниками)."
     total: Money!
-    "Разбивка дохода по участникам."
+    "Разбивка дохода по участникам; включает полученные переводы от других участников."
     byMember: [MemberAmount!]!
 }
 
 type ExpenseSummary {
-    "Суммарный расход группы за период."
+    "Суммарный расход группы за период (без переводов между участниками)."
     total: Money!
     "Разбивка расхода по категориям."
     byCategory: [CategoryAmount!]!
-    "Разбивка расхода по участникам (учитывает доли в разделённых операциях)."
+    "Разбивка расхода по участникам (учитывает доли в разделённых операциях и отправленные переводы другим участникам)."
     byMember: [MemberAmount!]!
 }
 
@@ -33,7 +35,14 @@ type GroupSummary {
     expense: ExpenseSummary!
 }
 
+type PeriodSummary {
+    income: IncomeSummary!
+    expense: ExpenseSummary!
+}
+
 extend type Query {
     "Агрегированная сводка группы за период (обзорная страница). period в формате YYYY-MM."
     summary(groupId: UUID!, period: String!): GroupSummary! @requireGroupMembership
+    "Доходы и расходы группы за произвольный период. dateFrom и dateTo в формате YYYY-MM-DD, обе границы включительно."
+    periodSummary(groupId: UUID!, dateFrom: String!, dateTo: String!): PeriodSummary! @requireGroupMembership
 }

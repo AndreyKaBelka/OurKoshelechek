@@ -16,3 +16,8 @@ import (
 func (r *queryResolver) Summary(ctx context.Context, groupID uuid.UUID, period string) (*model.GroupSummary, error) {
 	return r.SummaryService.Summary(ctx, groupID, period)
 }
+
+// PeriodSummary is the resolver for the periodSummary field.
+func (r *queryResolver) PeriodSummary(ctx context.Context, groupID uuid.UUID, dateFrom string, dateTo string) (*model.PeriodSummary, error) {
+	return r.SummaryService.PeriodSummary(ctx, groupID, dateFrom, dateTo)
+}

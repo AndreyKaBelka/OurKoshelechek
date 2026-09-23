@@ -12,6 +12,10 @@ type Type string
 const (
 	TypeIncome  Type = "income"
 	TypeExpense Type = "expense"
+	// TypeTransfer — перевод от одного участника группы другому: для
+	// отправителя (PayerUserID) это расход, для получателя (RecipientUserID) —
+	// доход, а на общий баланс группы он не влияет.
+	TypeTransfer Type = "transfer"
 )
 
 type PayerMode string
@@ -29,11 +33,13 @@ type Transaction struct {
 	CategoryID  *uuid.UUID
 	PayerMode   PayerMode
 	PayerUserID *uuid.UUID
-	Date        time.Time
-	Comment     *string
-	CreatedBy   uuid.UUID
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	// RecipientUserID — получатель перевода; задан только для TypeTransfer.
+	RecipientUserID *uuid.UUID
+	Date            time.Time
+	Comment         *string
+	CreatedBy       uuid.UUID
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 var ErrInvalidType = errors.New("invalid transaction type")
@@ -44,8 +50,13 @@ var ErrCommentTooLong = errors.New("comment too long")
 var ErrWrongTimeFormat = errors.New("updated at before created at")
 var ErrCategoryRequiredForExpense = errors.New("category is required for expense transactions")
 var ErrCategoryNotAllowedForIncome = errors.New("income transactions must not have a category")
+var ErrCategoryNotAllowedForTransfer = errors.New("transfer transactions must not have a category")
+var ErrTransferPayerModeUser = errors.New("transfer must have a single sender (user payer mode)")
+var ErrRecipientRequired = errors.New("recipient user id is required for transfer transactions")
+var ErrRecipientNotAllowed = errors.New("only transfer transactions can have a recipient")
+var ErrTransferToSelf = errors.New("transfer recipient must differ from the sender")
 
-func NewTransaction(id, groupID uuid.UUID, txType Type, amount int64, categoryID *uuid.UUID, payerMode PayerMode, payerUserID *uuid.UUID, date time.Time, comment *string, createdBy uuid.UUID, createdAt, updatedAt time.Time) (*Transaction, error) {
+func NewTransaction(id, groupID uuid.UUID, txType Type, amount int64, categoryID *uuid.UUID, payerMode PayerMode, payerUserID, recipientUserID *uuid.UUID, date time.Time, comment *string, createdBy uuid.UUID, createdAt, updatedAt time.Time) (*Transaction, error) {
 	switch txType {
 	case TypeIncome:
 		if categoryID != nil {
@@ -55,8 +66,25 @@ func NewTransaction(id, groupID uuid.UUID, txType Type, amount int64, categoryID
 		if categoryID == nil {
 			return nil, ErrCategoryRequiredForExpense
 		}
+	case TypeTransfer:
+		if categoryID != nil {
+			return nil, ErrCategoryNotAllowedForTransfer
+		}
+		if payerMode != PayerModeUser {
+			return nil, ErrTransferPayerModeUser
+		}
+		if recipientUserID == nil {
+			return nil, ErrRecipientRequired
+		}
+		if payerUserID != nil && *payerUserID == *recipientUserID {
+			return nil, ErrTransferToSelf
+		}
 	default:
 		return nil, ErrInvalidType
+	}
+
+	if txType != TypeTransfer && recipientUserID != nil {
+		return nil, ErrRecipientNotAllowed
 	}
 
 	if amount <= 0 {
@@ -82,18 +110,19 @@ func NewTransaction(id, groupID uuid.UUID, txType Type, amount int64, categoryID
 	}
 
 	return &Transaction{
-		ID:          id,
-		GroupID:     groupID,
-		Type:        txType,
-		Amount:      amount,
-		CategoryID:  categoryID,
-		PayerMode:   payerMode,
-		PayerUserID: payerUserID,
-		Date:        date,
-		Comment:     comment,
-		CreatedBy:   createdBy,
-		CreatedAt:   createdAt,
-		UpdatedAt:   updatedAt,
+		ID:              id,
+		GroupID:         groupID,
+		Type:            txType,
+		Amount:          amount,
+		CategoryID:      categoryID,
+		PayerMode:       payerMode,
+		PayerUserID:     payerUserID,
+		RecipientUserID: recipientUserID,
+		Date:            date,
+		Comment:         comment,
+		CreatedBy:       createdBy,
+		CreatedAt:       createdAt,
+		UpdatedAt:       updatedAt,
 	}, nil
 }
 

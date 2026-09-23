@@ -1,7 +1,13 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { CombinedError } from "urql";
-import { AUTH_STORAGE_KEY } from "../graphql/client";
-import { useLoginMutation, useMeQuery, useRegisterMutation } from "../graphql/operations/auth.generated";
+import { isUnauthenticated } from "../graphql/client";
+import { SESSION_EXPIRED_EVENT, clearSession, readSession, saveSession } from "../graphql/session";
+import {
+  useLoginMutation,
+  useLogoutMutation,
+  useMeQuery,
+  useRegisterMutation,
+} from "../graphql/operations/auth.generated";
 import { useGroupQuery, useGroupsQuery } from "../graphql/operations/groups.generated";
 import type { GroupRole } from "../graphql/operations/groups.generated";
 
@@ -60,14 +66,15 @@ interface AppStoreContextValue {
 
 const AppStoreContext = createContext<AppStoreContextValue | null>(null);
 
-export function AppStoreProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem(AUTH_STORAGE_KEY));
+export function AppStoreProvider({ children, onLogout }: { children: ReactNode; onLogout(): void }) {
+  const [token, setToken] = useState<string | null>(() => readSession()?.accessToken ?? null);
   const [activeGroupId, setActiveGroupIdState] = useState<string | null>(() => localStorage.getItem(ACTIVE_GROUP_KEY));
   const [installDismissed, setInstallDismissed] = useState<boolean>(() => localStorage.getItem(INSTALL_DISMISSED_KEY) === "1");
 
   const [meResult] = useMeQuery({ pause: !token });
   const [, loginMutation] = useLoginMutation();
   const [, registerMutation] = useRegisterMutation();
+  const [, logoutMutation] = useLogoutMutation();
 
   const [groupsResult, reexecuteGroups] = useGroupsQuery({
     pause: !token,
@@ -78,13 +85,22 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     pause: !token || !activeGroupId,
   });
 
-  // An invalid/expired token makes `me` fail — drop it so AuthScreen shows again.
+  // The urql auth exchange refreshes expired access tokens on its own; `me` still failing
+  // as UNAUTHENTICATED means the session couldn't be renewed — drop it so AuthScreen shows.
+  // Other errors (e.g. offline) keep the session.
   useEffect(() => {
-    if (token && meResult.error && !meResult.fetching) {
+    if (token && meResult.error && !meResult.fetching && isUnauthenticated(meResult.error)) {
       setToken(null);
-      localStorage.removeItem(AUTH_STORAGE_KEY);
+      clearSession();
     }
   }, [token, meResult.error, meResult.fetching]);
+
+  // The auth exchange fires this when the refresh token itself is rejected.
+  useEffect(() => {
+    const onExpired = () => setToken(null);
+    window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
+  }, []);
 
   function setActiveGroupId(groupId: string | null) {
     setActiveGroupIdState(groupId);
@@ -104,23 +120,27 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   async function login(username: string, password: string): Promise<string | null> {
     const result = await loginMutation({ input: { username, password } });
     if (result.error) return authErrorMessage(result.error);
+    saveSession(result.data!.login);
     setToken(result.data!.login.accessToken);
-    localStorage.setItem(AUTH_STORAGE_KEY, result.data!.login.accessToken);
     return null;
   }
 
   async function register(username: string, password: string): Promise<string | null> {
     const result = await registerMutation({ input: { username, password } });
     if (result.error) return authErrorMessage(result.error);
+    saveSession(result.data!.register);
     setToken(result.data!.register.accessToken);
-    localStorage.setItem(AUTH_STORAGE_KEY, result.data!.register.accessToken);
     return null;
   }
 
   function logout() {
+    // Revoke the refresh token server-side; fire-and-forget, the local session is gone either way.
+    const refreshToken = readSession()?.refreshToken;
+    if (refreshToken) void logoutMutation({ refreshToken });
     setToken(null);
-    localStorage.removeItem(AUTH_STORAGE_KEY);
+    clearSession();
     setActiveGroupId(null);
+    onLogout();
   }
 
   function dismissInstall() {
@@ -128,7 +148,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(INSTALL_DISMISSED_KEY, "1");
   }
 
-  const currentUser: CurrentUser | null = meResult.data?.me ?? null;
+  // A paused query keeps its last data, so without the token check `me` would outlive logout.
+  const currentUser: CurrentUser | null = token ? meResult.data?.me ?? null : null;
 
   const activeGroup: ActiveGroup | null = useMemo(() => {
     const g = groupResult.data?.group;

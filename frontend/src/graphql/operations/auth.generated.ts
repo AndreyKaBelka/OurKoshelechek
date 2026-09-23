@@ -23,21 +23,45 @@ export type MeQueryVariables = Exact<{ [key: string]: never; }>;
 
 export type MeQuery = { me: { id: string, username: string } };
 
+export type AuthTokensFragment = { accessToken: string, tokenType: string, expiresIn: number, refreshToken: string, refreshExpiresIn: number };
+
 export type RegisterMutationVariables = Exact<{
   input: Types.RegisterInput;
 }>;
 
 
-export type RegisterMutation = { register: { accessToken: string, tokenType: string, expiresIn: number } };
+export type RegisterMutation = { register: { accessToken: string, tokenType: string, expiresIn: number, refreshToken: string, refreshExpiresIn: number } };
 
 export type LoginMutationVariables = Exact<{
   input: Types.LoginInput;
 }>;
 
 
-export type LoginMutation = { login: { accessToken: string, tokenType: string, expiresIn: number } };
+export type LoginMutation = { login: { accessToken: string, tokenType: string, expiresIn: number, refreshToken: string, refreshExpiresIn: number } };
+
+export type RefreshTokenMutationVariables = Exact<{
+  refreshToken: string;
+}>;
 
 
+export type RefreshTokenMutation = { refreshToken: { accessToken: string, tokenType: string, expiresIn: number, refreshToken: string, refreshExpiresIn: number } };
+
+export type LogoutMutationVariables = Exact<{
+  refreshToken: string;
+}>;
+
+
+export type LogoutMutation = { logout: boolean };
+
+export const AuthTokensFragmentDoc = gql`
+    fragment AuthTokens on AuthPayload {
+  accessToken
+  tokenType
+  expiresIn
+  refreshToken
+  refreshExpiresIn
+}
+    `;
 export const MeDocument = gql`
     query Me {
   me {
@@ -53,12 +77,10 @@ export function useMeQuery(options?: Omit<Urql.UseQueryArgs<MeQueryVariables>, '
 export const RegisterDocument = gql`
     mutation Register($input: RegisterInput!) {
   register(input: $input) {
-    accessToken
-    tokenType
-    expiresIn
+    ...AuthTokens
   }
 }
-    `;
+    ${AuthTokensFragmentDoc}`;
 
 export function useRegisterMutation() {
   return Urql.useMutation<RegisterMutation, RegisterMutationVariables>(RegisterDocument);
@@ -66,13 +88,31 @@ export function useRegisterMutation() {
 export const LoginDocument = gql`
     mutation Login($input: LoginInput!) {
   login(input: $input) {
-    accessToken
-    tokenType
-    expiresIn
+    ...AuthTokens
   }
 }
-    `;
+    ${AuthTokensFragmentDoc}`;
 
 export function useLoginMutation() {
   return Urql.useMutation<LoginMutation, LoginMutationVariables>(LoginDocument);
+};
+export const RefreshTokenDocument = gql`
+    mutation RefreshToken($refreshToken: String!) {
+  refreshToken(refreshToken: $refreshToken) {
+    ...AuthTokens
+  }
+}
+    ${AuthTokensFragmentDoc}`;
+
+export function useRefreshTokenMutation() {
+  return Urql.useMutation<RefreshTokenMutation, RefreshTokenMutationVariables>(RefreshTokenDocument);
+};
+export const LogoutDocument = gql`
+    mutation Logout($refreshToken: String!) {
+  logout(refreshToken: $refreshToken)
+}
+    `;
+
+export function useLogoutMutation() {
+  return Urql.useMutation<LogoutMutation, LogoutMutationVariables>(LogoutDocument);
 };

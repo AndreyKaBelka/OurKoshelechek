@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"os"
@@ -13,12 +15,14 @@ import (
 	"OurKoshelechek/internal/service"
 	"OurKoshelechek/resolvers"
 
+	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/handler/extension"
 	"github.com/99designs/gqlgen/graphql/handler/lru"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/gqlerror"
 )
 
 const defaultPort = "8081"
@@ -28,7 +32,10 @@ const defaultDBDSN = "postgres://postgres:postgres@localhost:5432/ourkoshelechek
 // environment still boots; run() logs loudly when it falls back to this.
 const devJWTSecret = "dev-insecure-secret-change-me"
 
-const accessTokenTTL = 24 * time.Hour
+// Access tokens are short-lived; clients keep the session alive by trading
+// the refresh token (rotated on every use) for a new pair.
+const accessTokenTTL = 15 * time.Minute
+const refreshTokenTTL = 30 * 24 * time.Hour
 
 func main() {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
@@ -70,7 +77,7 @@ func run(log *slog.Logger) error {
 		Repos:              repos,
 		CategoryService:    service.NewCategoryService(repos.Category),
 		TransactionService: service.NewTransactionService(&repos, uow),
-		UserService:        service.NewUserService(repos.User, auth),
+		UserService:        service.NewUserService(repos.User, repos.RefreshToken, auth, refreshTokenTTL),
 		GroupService:       service.NewGroupService(&repos, uow),
 		BudgetService:      service.NewBudgetService(&repos),
 		GoalService:        service.NewGoalService(&repos, uow),
@@ -84,6 +91,8 @@ func run(log *slog.Logger) error {
 			RequireGroupRole:       resolver.RequireGroupRole,
 		},
 	}))
+
+	srv.SetErrorPresenter(presentError)
 
 	srv.AddTransport(transport.Options{})
 	srv.AddTransport(transport.GET{})
@@ -103,6 +112,20 @@ func run(log *slog.Logger) error {
 	log.Info("starting server", "port", port)
 
 	return http.ListenAndServe(":"+port, mux)
+}
+
+// presentError tags authentication failures with extensions.code
+// "UNAUTHENTICATED" so clients can tell an expired access token (refresh and
+// retry) apart from any other error without matching on message text.
+func presentError(ctx context.Context, err error) *gqlerror.Error {
+	gqlErr := graphql.DefaultErrorPresenter(ctx, err)
+	if errors.Is(err, platform.ErrUnauthenticated) {
+		if gqlErr.Extensions == nil {
+			gqlErr.Extensions = map[string]any{}
+		}
+		gqlErr.Extensions["code"] = "UNAUTHENTICATED"
+	}
+	return gqlErr
 }
 
 // authMiddleware reads Authorization: Bearer <token> off the request, and

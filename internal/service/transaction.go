@@ -20,6 +20,11 @@ import (
 // split transaction don't add up to the transaction amount.
 var ErrPayerSharesSumMismatch = errors.New("payer shares must sum to the transaction amount")
 
+const (
+	defaultTransactionPageSize = 20
+	maxTransactionPageSize     = 100
+)
+
 // TransactionService holds the transaction business logic that resolvers
 // previously implemented inline: building/validating a Transaction,
 // persisting it, and assembling the GraphQL response together with its
@@ -54,6 +59,12 @@ func (s *TransactionService) Create(ctx context.Context, groupID uuid.UUID, inpu
 	t, err := mapper.ToDomainTransactionFromInput(input, createdBy, groupID)
 	if err != nil {
 		return nil, err
+	}
+
+	if t.RecipientUserID != nil {
+		if err := requireGroupMember(ctx, s.repositories, groupID, *t.RecipientUserID); err != nil {
+			return nil, err
+		}
 	}
 
 	shares, err := s.resolveShares(ctx, t, input.Payer)
@@ -114,6 +125,24 @@ func (s *TransactionService) Update(ctx context.Context, groupID, transactionID 
 	if input.CategoryID != nil {
 		newCategoryID = input.CategoryID
 	}
+	// Категория есть только у расходов: при смене типа на доход/перевод
+	// старая категория сбрасывается, а не превращается в ошибку валидации.
+	if newType != transaction.TypeExpense {
+		newCategoryID = nil
+	}
+
+	newRecipientUserID := existing.RecipientUserID
+	if input.RecipientUserID != nil {
+		newRecipientUserID = input.RecipientUserID
+	}
+	if newType != transaction.TypeTransfer {
+		newRecipientUserID = nil
+	}
+	if newRecipientUserID != nil && input.RecipientUserID != nil {
+		if err := requireGroupMember(ctx, s.repositories, groupID, *newRecipientUserID); err != nil {
+			return nil, err
+		}
+	}
 	// Validated before the DB write below: if newCategoryID doesn't belong to
 	// groupID, this must fail before Transaction.Update persists it, not
 	// after the surrounding transaction has already committed.
@@ -145,7 +174,7 @@ func (s *TransactionService) Update(ctx context.Context, groupID, transactionID 
 	now := time.Now()
 	t, err := transaction.NewTransaction(
 		transactionID, groupID, newType, newAmount, newCategoryID, newPayerMode, newPayerUserID,
-		newDate, newComment, existing.CreatedBy, existing.CreatedAt, now,
+		newRecipientUserID, newDate, newComment, existing.CreatedBy, existing.CreatedAt, now,
 	)
 	if err != nil {
 		return nil, err
@@ -271,13 +300,16 @@ func (s *TransactionService) List(ctx context.Context, groupID uuid.UUID, filter
 		}
 		filterDb.CategoryID = filter.CategoryID
 		filterDb.PayerUserID = filter.PayerUserID
+		filterDb.RecipientUserID = filter.RecipientUserID
 		filterDb.DateFrom = filter.DateFrom
 		filterDb.DateTo = filter.DateTo
 	}
 
-	pageSize := 20
+	pageSize := defaultTransactionPageSize
 	if first != nil {
-		pageSize = *first
+		// A non-positive limit would reach SQL as LIMIT <= 0 (an error), and an
+		// unbounded one would let a single request load the whole history.
+		pageSize = min(max(*first, 1), maxTransactionPageSize)
 	}
 
 	items, hasMore, total, err := s.repositories.Transaction.List(ctx, groupID, filterDb, pageSize, after)
@@ -307,7 +339,7 @@ func (s *TransactionService) List(ctx context.Context, groupID uuid.UUID, filter
 		list.Items = append(list.Items, mapper.ToModelTransaction(&t, mapper.ToModelCategory(cat), shares))
 	}
 	if hasMore && len(items) > 0 {
-		cursor := items[len(items)-1].ID.String()
+		cursor := items[len(items)-1].ID
 		list.NextCursor = &cursor
 	}
 	return list, nil

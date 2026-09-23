@@ -1,1 +1,1 @@
-export type Screen = "main" | "tx" | "budget" | "goals" | "group";
+export type Screen = "main" | "tx" | "stats" | "budget" | "goals" | "group";

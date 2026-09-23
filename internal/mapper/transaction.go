@@ -16,6 +16,8 @@ func ToModelTransactionType(t transaction.Type) model.TransactionType {
 		return model.TransactionTypeIncome
 	case transaction.TypeExpense:
 		return model.TransactionTypeExpense
+	case transaction.TypeTransfer:
+		return model.TransactionTypeTransfer
 	default:
 		return ""
 	}
@@ -27,6 +29,8 @@ func ToDomainTransactionType(t model.TransactionType) transaction.Type {
 		return transaction.TypeIncome
 	case model.TransactionTypeExpense:
 		return transaction.TypeExpense
+	case model.TransactionTypeTransfer:
+		return transaction.TypeTransfer
 	default:
 		return ""
 	}
@@ -95,15 +99,16 @@ func ToModelPayer(t *transaction.Transaction, shares []*model.PayerShare) *model
 // category и shares (Transaction в GraphQL хранит их как вложенные объекты, а не id).
 func ToModelTransaction(t *transaction.Transaction, cat *model.Category, shares []*model.PayerShare) *model.Transaction {
 	return &model.Transaction{
-		ID:        t.ID,
-		Type:      ToModelTransactionType(t.Type),
-		Amount:    &model.Money{Amount: int(t.Amount)},
-		Category:  cat,
-		Payer:     ToModelPayer(t, shares),
-		Date:      t.Date,
-		Comment:   t.Comment,
-		CreatedBy: t.CreatedBy,
-		CreatedAt: t.CreatedAt,
+		ID:              t.ID,
+		Type:            ToModelTransactionType(t.Type),
+		Amount:          &model.Money{Amount: int(t.Amount)},
+		Category:        cat,
+		Payer:           ToModelPayer(t, shares),
+		RecipientUserID: t.RecipientUserID,
+		Date:            t.Date,
+		Comment:         t.Comment,
+		CreatedBy:       t.CreatedBy,
+		CreatedAt:       t.CreatedAt,
 	}
 }
 
@@ -136,6 +141,7 @@ func ToDomainTransaction(m *model.Transaction, groupID uuid.UUID, updatedAt time
 		categoryID,
 		payerMode,
 		payerUserID,
+		m.RecipientUserID,
 		m.Date,
 		m.Comment,
 		m.CreatedBy,
@@ -169,6 +175,7 @@ func ToDomainTransactionFromInput(m model.CreateTransactionInput, createdBy uuid
 		m.CategoryID,
 		payerMode,
 		payerUserID,
+		m.RecipientUserID,
 		m.Date,
 		m.Comment,
 		createdBy,

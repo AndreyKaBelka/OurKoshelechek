@@ -1,6 +1,8 @@
 enum TransactionType {
     INCOME
     EXPENSE
+    "Перевод от одного участника группы другому: для отправителя (payer.userId) это расход, для получателя (recipientUserId) — доход. Не влияет на общий баланс и итоги группы."
+    TRANSFER
 }
 
 enum PayerMode {
@@ -40,9 +42,12 @@ type Transaction {
     id: UUID!
     type: TransactionType!
     amount: Money!
-    "Категория расхода; null для type = INCOME — доходы категорий не имеют."
+    "Категория расхода; null для type = INCOME и TRANSFER."
     category: Category
+    "Для type = TRANSFER — отправитель перевода (всегда mode = USER)."
     payer: Payer!
+    "Получатель перевода; задан только для type = TRANSFER."
+    recipientUserId: UUID
     date: DateTime!
     comment: String
     "Пользователь, создавший операцию (может отличаться от payer)."
@@ -53,7 +58,7 @@ type Transaction {
 type TransactionList {
     items: [Transaction!]!
     "Курсор для запроса следующей страницы через аргумент after; null, если дальше ничего нет."
-    nextCursor: String
+    nextCursor: UUID
     "true, если есть ещё операции после текущей страницы."
     hasMore: Boolean!
     "Общее число операций, подходящих под filter, вне зависимости от размера текущей страницы."
@@ -63,9 +68,12 @@ type TransactionList {
 input CreateTransactionInput {
     type: TransactionType!
     amount: MoneyInput!
-    "Обязателен для type = EXPENSE; должен отсутствовать для type = INCOME."
+    "Обязателен для type = EXPENSE; должен отсутствовать для type = INCOME и TRANSFER."
     categoryId: UUID
+    "Для type = TRANSFER — отправитель, mode должен быть USER."
     payer: PayerInput!
+    "Обязателен для type = TRANSFER (участник группы, отличный от отправителя); должен отсутствовать для остальных типов."
+    recipientUserId: UUID
     date: DateTime!
     comment: String
 }
@@ -75,6 +83,8 @@ input UpdateTransactionInput {
     amount: MoneyInput
     categoryId: UUID
     payer: PayerInput
+    "Получатель перевода; при смене типа на не-TRANSFER сбрасывается автоматически."
+    recipientUserId: UUID
     date: DateTime
     comment: String
 }
@@ -83,6 +93,7 @@ input TransactionFilter {
     type: TransactionType
     categoryId: UUID
     payerUserId: UUID
+    recipientUserId: UUID
     "Нижняя граница по date, включительно."
     dateFrom: DateTime
     "Верхняя граница по date, включительно."

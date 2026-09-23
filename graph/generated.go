@@ -41,9 +41,11 @@ type DirectiveRoot struct {
 
 type ComplexityRoot struct {
 	AuthPayload struct {
-		AccessToken func(childComplexity int) int
-		ExpiresIn   func(childComplexity int) int
-		TokenType   func(childComplexity int) int
+		AccessToken      func(childComplexity int) int
+		ExpiresIn        func(childComplexity int) int
+		RefreshExpiresIn func(childComplexity int) int
+		RefreshToken     func(childComplexity int) int
+		TokenType        func(childComplexity int) int
 	}
 
 	Budget struct {
@@ -67,6 +69,7 @@ type ComplexityRoot struct {
 
 	CategoryAmount struct {
 		Amount     func(childComplexity int) int
+		ByMember   func(childComplexity int) int
 		CategoryID func(childComplexity int) int
 	}
 
@@ -148,6 +151,8 @@ type ComplexityRoot struct {
 		DeleteTransaction func(childComplexity int, groupID uuid.UUID, transactionID uuid.UUID) int
 		InviteMember      func(childComplexity int, groupID uuid.UUID, input model.InviteMemberInput) int
 		Login             func(childComplexity int, input model.LoginInput) int
+		Logout            func(childComplexity int, refreshToken string) int
+		RefreshToken      func(childComplexity int, refreshToken string) int
 		Register          func(childComplexity int, input model.RegisterInput) int
 		RemoveMember      func(childComplexity int, groupID uuid.UUID, userID uuid.UUID) int
 		UpdateCategory    func(childComplexity int, groupID uuid.UUID, categoryID uuid.UUID, input model.UpdateCategoryInput) int
@@ -168,6 +173,11 @@ type ComplexityRoot struct {
 		UserID func(childComplexity int) int
 	}
 
+	PeriodSummary struct {
+		Expense func(childComplexity int) int
+		Income  func(childComplexity int) int
+	}
+
 	Query struct {
 		Budget            func(childComplexity int, groupID uuid.UUID, period string) int
 		Categories        func(childComplexity int, groupID uuid.UUID) int
@@ -177,21 +187,23 @@ type ComplexityRoot struct {
 		Groups            func(childComplexity int) int
 		Health            func(childComplexity int) int
 		Me                func(childComplexity int) int
+		PeriodSummary     func(childComplexity int, groupID uuid.UUID, dateFrom string, dateTo string) int
 		Summary           func(childComplexity int, groupID uuid.UUID, period string) int
 		Transaction       func(childComplexity int, groupID uuid.UUID, transactionID uuid.UUID) int
 		Transactions      func(childComplexity int, groupID uuid.UUID, filter *model.TransactionFilter, first *int, after *uuid.UUID) int
 	}
 
 	Transaction struct {
-		Amount    func(childComplexity int) int
-		Category  func(childComplexity int) int
-		Comment   func(childComplexity int) int
-		CreatedAt func(childComplexity int) int
-		CreatedBy func(childComplexity int) int
-		Date      func(childComplexity int) int
-		ID        func(childComplexity int) int
-		Payer     func(childComplexity int) int
-		Type      func(childComplexity int) int
+		Amount          func(childComplexity int) int
+		Category        func(childComplexity int) int
+		Comment         func(childComplexity int) int
+		CreatedAt       func(childComplexity int) int
+		CreatedBy       func(childComplexity int) int
+		Date            func(childComplexity int) int
+		ID              func(childComplexity int) int
+		Payer           func(childComplexity int) int
+		RecipientUserID func(childComplexity int) int
+		Type            func(childComplexity int) int
 	}
 
 	TransactionList struct {
@@ -229,6 +241,8 @@ type MutationResolver interface {
 	DeleteTransaction(ctx context.Context, groupID uuid.UUID, transactionID uuid.UUID) (bool, error)
 	Register(ctx context.Context, input model.RegisterInput) (*model.AuthPayload, error)
 	Login(ctx context.Context, input model.LoginInput) (*model.AuthPayload, error)
+	RefreshToken(ctx context.Context, refreshToken string) (*model.AuthPayload, error)
+	Logout(ctx context.Context, refreshToken string) (bool, error)
 }
 type QueryResolver interface {
 	Budget(ctx context.Context, groupID uuid.UUID, period string) (*model.Budget, error)
@@ -239,6 +253,7 @@ type QueryResolver interface {
 	Group(ctx context.Context, groupID uuid.UUID) (*model.Group, error)
 	Health(ctx context.Context) (model.HealthStatus, error)
 	Summary(ctx context.Context, groupID uuid.UUID, period string) (*model.GroupSummary, error)
+	PeriodSummary(ctx context.Context, groupID uuid.UUID, dateFrom string, dateTo string) (*model.PeriodSummary, error)
 	Transactions(ctx context.Context, groupID uuid.UUID, filter *model.TransactionFilter, first *int, after *uuid.UUID) (*model.TransactionList, error)
 	Transaction(ctx context.Context, groupID uuid.UUID, transactionID uuid.UUID) (*model.Transaction, error)
 	Me(ctx context.Context) (*model.User, error)
@@ -274,6 +289,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.AuthPayload.ExpiresIn(childComplexity), true
+	case "AuthPayload.refreshExpiresIn":
+		if e.ComplexityRoot.AuthPayload.RefreshExpiresIn == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AuthPayload.RefreshExpiresIn(childComplexity), true
+	case "AuthPayload.refreshToken":
+		if e.ComplexityRoot.AuthPayload.RefreshToken == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AuthPayload.RefreshToken(childComplexity), true
 	case "AuthPayload.tokenType":
 		if e.ComplexityRoot.AuthPayload.TokenType == nil {
 			break
@@ -350,6 +377,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.CategoryAmount.Amount(childComplexity), true
+	case "CategoryAmount.byMember":
+		if e.ComplexityRoot.CategoryAmount.ByMember == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CategoryAmount.ByMember(childComplexity), true
 	case "CategoryAmount.categoryId":
 		if e.ComplexityRoot.CategoryAmount.CategoryID == nil {
 			break
@@ -682,6 +715,28 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.Login(childComplexity, args["input"].(model.LoginInput)), true
+	case "Mutation.logout":
+		if e.ComplexityRoot.Mutation.Logout == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_logout_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.Logout(childComplexity, args["refreshToken"].(string)), true
+	case "Mutation.refreshToken":
+		if e.ComplexityRoot.Mutation.RefreshToken == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_refreshToken_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.RefreshToken(childComplexity, args["refreshToken"].(string)), true
 	case "Mutation.register":
 		if e.ComplexityRoot.Mutation.Register == nil {
 			break
@@ -792,6 +847,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.PayerShare.UserID(childComplexity), true
 
+	case "PeriodSummary.expense":
+		if e.ComplexityRoot.PeriodSummary.Expense == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PeriodSummary.Expense(childComplexity), true
+	case "PeriodSummary.income":
+		if e.ComplexityRoot.PeriodSummary.Income == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PeriodSummary.Income(childComplexity), true
+
 	case "Query.budget":
 		if e.ComplexityRoot.Query.Budget == nil {
 			break
@@ -866,6 +934,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.Me(childComplexity), true
+	case "Query.periodSummary":
+		if e.ComplexityRoot.Query.PeriodSummary == nil {
+			break
+		}
+
+		args, err := ec.field_Query_periodSummary_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.PeriodSummary(childComplexity, args["groupId"].(uuid.UUID), args["dateFrom"].(string), args["dateTo"].(string)), true
 	case "Query.summary":
 		if e.ComplexityRoot.Query.Summary == nil {
 			break
@@ -948,6 +1027,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Transaction.Payer(childComplexity), true
+	case "Transaction.recipientUserId":
+		if e.ComplexityRoot.Transaction.RecipientUserID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Transaction.RecipientUserID(childComplexity), true
 	case "Transaction.type":
 		if e.ComplexityRoot.Transaction.Type == nil {
 			break
@@ -1340,21 +1425,23 @@ directive @requireGroupRole(min: GroupRole!) on FIELD_DEFINITION
 type CategoryAmount {
     categoryId: UUID!
     amount: Money!
+    "Разбивка расхода категории по участникам (учитывает доли в разделённых операциях)."
+    byMember: [MemberAmount!]!
 }
 
 type IncomeSummary {
-    "Суммарный доход группы за период."
+    "Суммарный доход группы за период (без переводов между участниками)."
     total: Money!
-    "Разбивка дохода по участникам."
+    "Разбивка дохода по участникам; включает полученные переводы от других участников."
     byMember: [MemberAmount!]!
 }
 
 type ExpenseSummary {
-    "Суммарный расход группы за период."
+    "Суммарный расход группы за период (без переводов между участниками)."
     total: Money!
     "Разбивка расхода по категориям."
     byCategory: [CategoryAmount!]!
-    "Разбивка расхода по участникам (учитывает доли в разделённых операциях)."
+    "Разбивка расхода по участникам (учитывает доли в разделённых операциях и отправленные переводы другим участникам)."
     byMember: [MemberAmount!]!
 }
 
@@ -1367,14 +1454,23 @@ type GroupSummary {
     expense: ExpenseSummary!
 }
 
+type PeriodSummary {
+    income: IncomeSummary!
+    expense: ExpenseSummary!
+}
+
 extend type Query {
     "Агрегированная сводка группы за период (обзорная страница). period в формате YYYY-MM."
     summary(groupId: UUID!, period: String!): GroupSummary! @requireGroupMembership
+    "Доходы и расходы группы за произвольный период. dateFrom и dateTo в формате YYYY-MM-DD, обе границы включительно."
+    periodSummary(groupId: UUID!, dateFrom: String!, dateTo: String!): PeriodSummary! @requireGroupMembership
 }
 `, BuiltIn: false},
 	{Name: "../api/transactions/transactions.graphql", Input: `enum TransactionType {
     INCOME
     EXPENSE
+    "Перевод от одного участника группы другому: для отправителя (payer.userId) это расход, для получателя (recipientUserId) — доход. Не влияет на общий баланс и итоги группы."
+    TRANSFER
 }
 
 enum PayerMode {
@@ -1414,9 +1510,12 @@ type Transaction {
     id: UUID!
     type: TransactionType!
     amount: Money!
-    "Категория расхода; null для type = INCOME — доходы категорий не имеют."
+    "Категория расхода; null для type = INCOME и TRANSFER."
     category: Category
+    "Для type = TRANSFER — отправитель перевода (всегда mode = USER)."
     payer: Payer!
+    "Получатель перевода; задан только для type = TRANSFER."
+    recipientUserId: UUID
     date: DateTime!
     comment: String
     "Пользователь, создавший операцию (может отличаться от payer)."
@@ -1427,7 +1526,7 @@ type Transaction {
 type TransactionList {
     items: [Transaction!]!
     "Курсор для запроса следующей страницы через аргумент after; null, если дальше ничего нет."
-    nextCursor: String
+    nextCursor: UUID
     "true, если есть ещё операции после текущей страницы."
     hasMore: Boolean!
     "Общее число операций, подходящих под filter, вне зависимости от размера текущей страницы."
@@ -1437,9 +1536,12 @@ type TransactionList {
 input CreateTransactionInput {
     type: TransactionType!
     amount: MoneyInput!
-    "Обязателен для type = EXPENSE; должен отсутствовать для type = INCOME."
+    "Обязателен для type = EXPENSE; должен отсутствовать для type = INCOME и TRANSFER."
     categoryId: UUID
+    "Для type = TRANSFER — отправитель, mode должен быть USER."
     payer: PayerInput!
+    "Обязателен для type = TRANSFER (участник группы, отличный от отправителя); должен отсутствовать для остальных типов."
+    recipientUserId: UUID
     date: DateTime!
     comment: String
 }
@@ -1449,6 +1551,8 @@ input UpdateTransactionInput {
     amount: MoneyInput
     categoryId: UUID
     payer: PayerInput
+    "Получатель перевода; при смене типа на не-TRANSFER сбрасывается автоматически."
+    recipientUserId: UUID
     date: DateTime
     comment: String
 }
@@ -1457,6 +1561,7 @@ input TransactionFilter {
     type: TransactionType
     categoryId: UUID
     payerUserId: UUID
+    recipientUserId: UUID
     "Нижняя граница по date, включительно."
     dateFrom: DateTime
     "Верхняя граница по date, включительно."
@@ -1497,6 +1602,10 @@ type AuthPayload {
     tokenType: String!
     "Срок жизни accessToken в секундах."
     expiresIn: Int!
+    "Одноразовый долгоживущий токен для получения новой пары токенов через refreshToken."
+    refreshToken: String!
+    "Срок жизни refreshToken в секундах."
+    refreshExpiresIn: Int!
 }
 
 input RegisterInput {
@@ -1519,6 +1628,10 @@ extend type Mutation {
     register(input: RegisterInput!): AuthPayload!
     "Войти по логину и паролю."
     login(input: LoginInput!): AuthPayload!
+    "Обменять refresh-токен на новую пару токенов. Переданный refresh-токен становится недействительным."
+    refreshToken(refreshToken: String!): AuthPayload!
+    "Отозвать refresh-токен (выход из аккаунта на этом устройстве). Не требует access-токена."
+    logout(refreshToken: String!): Boolean!
 }
 `, BuiltIn: false},
 }
@@ -1536,6 +1649,10 @@ func (ec *executionContext) childFields_AuthPayload(ctx context.Context, field g
 		return ec.fieldContext_AuthPayload_tokenType(ctx, field)
 	case "expiresIn":
 		return ec.fieldContext_AuthPayload_expiresIn(ctx, field)
+	case "refreshToken":
+		return ec.fieldContext_AuthPayload_refreshToken(ctx, field)
+	case "refreshExpiresIn":
+		return ec.fieldContext_AuthPayload_refreshExpiresIn(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type AuthPayload", field.Name)
 }
@@ -1584,6 +1701,8 @@ func (ec *executionContext) childFields_CategoryAmount(ctx context.Context, fiel
 		return ec.fieldContext_CategoryAmount_categoryId(ctx, field)
 	case "amount":
 		return ec.fieldContext_CategoryAmount_amount(ctx, field)
+	case "byMember":
+		return ec.fieldContext_CategoryAmount_byMember(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type CategoryAmount", field.Name)
 }
@@ -1744,6 +1863,16 @@ func (ec *executionContext) childFields_PayerShare(ctx context.Context, field gr
 	return nil, fmt.Errorf("no field named %q was found under type PayerShare", field.Name)
 }
 
+func (ec *executionContext) childFields_PeriodSummary(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "income":
+		return ec.fieldContext_PeriodSummary_income(ctx, field)
+	case "expense":
+		return ec.fieldContext_PeriodSummary_expense(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type PeriodSummary", field.Name)
+}
+
 func (ec *executionContext) childFields_Transaction(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "id":
@@ -1756,6 +1885,8 @@ func (ec *executionContext) childFields_Transaction(ctx context.Context, field g
 		return ec.fieldContext_Transaction_category(ctx, field)
 	case "payer":
 		return ec.fieldContext_Transaction_payer(ctx, field)
+	case "recipientUserId":
+		return ec.fieldContext_Transaction_recipientUserId(ctx, field)
 	case "date":
 		return ec.fieldContext_Transaction_date(ctx, field)
 	case "comment":
@@ -2134,6 +2265,34 @@ func (ec *executionContext) field_Mutation_login_args(ctx context.Context, rawAr
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_logout_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "refreshToken",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["refreshToken"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_refreshToken_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "refreshToken",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["refreshToken"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_register_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -2412,6 +2571,36 @@ func (ec *executionContext) field_Query_group_args(ctx context.Context, rawArgs 
 	return args, nil
 }
 
+func (ec *executionContext) field_Query_periodSummary_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "groupId",
+		func(ctx context.Context, v any) (uuid.UUID, error) {
+			return ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["groupId"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "dateFrom",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["dateFrom"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "dateTo",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["dateTo"] = arg2
+	return args, nil
+}
+
 func (ec *executionContext) field_Query_summary_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -2620,6 +2809,52 @@ func (ec *executionContext) _AuthPayload_expiresIn(ctx context.Context, field gr
 	)
 }
 func (ec *executionContext) fieldContext_AuthPayload_expiresIn(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("AuthPayload", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _AuthPayload_refreshToken(ctx context.Context, field graphql.CollectedField, obj *model.AuthPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AuthPayload_refreshToken(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RefreshToken, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_AuthPayload_refreshToken(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("AuthPayload", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _AuthPayload_refreshExpiresIn(ctx context.Context, field graphql.CollectedField, obj *model.AuthPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AuthPayload_refreshExpiresIn(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RefreshExpiresIn, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_AuthPayload_refreshExpiresIn(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("AuthPayload", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
@@ -2957,6 +3192,38 @@ func (ec *executionContext) fieldContext_CategoryAmount_amount(_ context.Context
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return ec.childFields_Money(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CategoryAmount_byMember(ctx context.Context, field graphql.CollectedField, obj *model.CategoryAmount) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CategoryAmount_byMember(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ByMember, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.MemberAmount) graphql.Marshaler {
+			return ec.marshalNMemberAmount2ᚕᚖOurKoshelechekᚋgraphᚋmodelᚐMemberAmountᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CategoryAmount_byMember(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CategoryAmount",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MemberAmount(ctx, field)
 		},
 	}
 	return fc, nil
@@ -4879,6 +5146,94 @@ func (ec *executionContext) fieldContext_Mutation_login(ctx context.Context, fie
 	return fc, nil
 }
 
+func (ec *executionContext) _Mutation_refreshToken(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_refreshToken(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().RefreshToken(ctx, fc.Args["refreshToken"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.AuthPayload) graphql.Marshaler {
+			return ec.marshalNAuthPayload2ᚖOurKoshelechekᚋgraphᚋmodelᚐAuthPayload(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_refreshToken(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_AuthPayload(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_refreshToken_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_logout(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_logout(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().Logout(ctx, fc.Args["refreshToken"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_logout(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_logout_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Payer_mode(ctx context.Context, field graphql.CollectedField, obj *model.Payer) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -5007,6 +5362,70 @@ func (ec *executionContext) fieldContext_PayerShare_amount(_ context.Context, fi
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return ec.childFields_Money(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PeriodSummary_income(ctx context.Context, field graphql.CollectedField, obj *model.PeriodSummary) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PeriodSummary_income(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Income, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.IncomeSummary) graphql.Marshaler {
+			return ec.marshalNIncomeSummary2ᚖOurKoshelechekᚋgraphᚋmodelᚐIncomeSummary(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PeriodSummary_income(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PeriodSummary",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_IncomeSummary(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PeriodSummary_expense(ctx context.Context, field graphql.CollectedField, obj *model.PeriodSummary) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PeriodSummary_expense(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Expense, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.ExpenseSummary) graphql.Marshaler {
+			return ec.marshalNExpenseSummary2ᚖOurKoshelechekᚋgraphᚋmodelᚐExpenseSummary(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PeriodSummary_expense(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PeriodSummary",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_ExpenseSummary(ctx, field)
 		},
 	}
 	return fc, nil
@@ -5409,6 +5828,63 @@ func (ec *executionContext) fieldContext_Query_summary(ctx context.Context, fiel
 	return fc, nil
 }
 
+func (ec *executionContext) _Query_periodSummary(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_periodSummary(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().PeriodSummary(ctx, fc.Args["groupId"].(uuid.UUID), fc.Args["dateFrom"].(string), fc.Args["dateTo"].(string))
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			directive0 := next
+
+			directive1 := func(ctx context.Context) (any, error) {
+				if ec.Directives.RequireGroupMembership == nil {
+					var zeroVal *model.PeriodSummary
+					return zeroVal, errors.New("directive requireGroupMembership is not implemented")
+				}
+				return ec.Directives.RequireGroupMembership(ctx, nil, directive0)
+			}
+
+			next = directive1
+			return next
+		},
+		func(ctx context.Context, selections ast.SelectionSet, v *model.PeriodSummary) graphql.Marshaler {
+			return ec.marshalNPeriodSummary2ᚖOurKoshelechekᚋgraphᚋmodelᚐPeriodSummary(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_periodSummary(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PeriodSummary(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_periodSummary_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query_transactions(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -5773,6 +6249,29 @@ func (ec *executionContext) fieldContext_Transaction_payer(_ context.Context, fi
 	return fc, nil
 }
 
+func (ec *executionContext) _Transaction_recipientUserId(ctx context.Context, field graphql.CollectedField, obj *model.Transaction) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Transaction_recipientUserId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RecipientUserID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *uuid.UUID) graphql.Marshaler {
+			return ec.marshalOUUID2ᚖgithubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Transaction_recipientUserId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Transaction", field, false, false, errors.New("field of type UUID does not have child fields"))
+}
+
 func (ec *executionContext) _Transaction_date(ctx context.Context, field graphql.CollectedField, obj *model.Transaction) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -5909,15 +6408,15 @@ func (ec *executionContext) _TransactionList_nextCursor(ctx context.Context, fie
 			return obj.NextCursor, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
-			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *uuid.UUID) graphql.Marshaler {
+			return ec.marshalOUUID2ᚖgithubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
 		},
 		true,
 		false,
 	)
 }
 func (ec *executionContext) fieldContext_TransactionList_nextCursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TransactionList", field, false, false, errors.New("field of type String does not have child fields"))
+	return graphql.NewScalarFieldContext("TransactionList", field, false, false, errors.New("field of type UUID does not have child fields"))
 }
 
 func (ec *executionContext) _TransactionList_hasMore(ctx context.Context, field graphql.CollectedField, obj *model.TransactionList) (ret graphql.Marshaler) {
@@ -7244,7 +7743,7 @@ func (ec *executionContext) unmarshalInputCreateTransactionInput(ctx context.Con
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"type", "amount", "categoryId", "payer", "date", "comment"}
+	fieldsInOrder := [...]string{"type", "amount", "categoryId", "payer", "recipientUserId", "date", "comment"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -7279,6 +7778,13 @@ func (ec *executionContext) unmarshalInputCreateTransactionInput(ctx context.Con
 				return it, err
 			}
 			it.Payer = data
+		case "recipientUserId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("recipientUserId"))
+			data, err := ec.unmarshalOUUID2ᚖgithubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RecipientUserID = data
 		case "date":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("date"))
 			data, err := ec.unmarshalNDateTime2timeᚐTime(ctx, v)
@@ -7531,7 +8037,7 @@ func (ec *executionContext) unmarshalInputTransactionFilter(ctx context.Context,
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"type", "categoryId", "payerUserId", "dateFrom", "dateTo"}
+	fieldsInOrder := [...]string{"type", "categoryId", "payerUserId", "recipientUserId", "dateFrom", "dateTo"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -7559,6 +8065,13 @@ func (ec *executionContext) unmarshalInputTransactionFilter(ctx context.Context,
 				return it, err
 			}
 			it.PayerUserID = data
+		case "recipientUserId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("recipientUserId"))
+			data, err := ec.unmarshalOUUID2ᚖgithubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RecipientUserID = data
 		case "dateFrom":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("dateFrom"))
 			data, err := ec.unmarshalODateTime2ᚖtimeᚐTime(ctx, v)
@@ -7707,7 +8220,7 @@ func (ec *executionContext) unmarshalInputUpdateTransactionInput(ctx context.Con
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"type", "amount", "categoryId", "payer", "date", "comment"}
+	fieldsInOrder := [...]string{"type", "amount", "categoryId", "payer", "recipientUserId", "date", "comment"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -7742,6 +8255,13 @@ func (ec *executionContext) unmarshalInputUpdateTransactionInput(ctx context.Con
 				return it, err
 			}
 			it.Payer = data
+		case "recipientUserId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("recipientUserId"))
+			data, err := ec.unmarshalOUUID2ᚖgithubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RecipientUserID = data
 		case "date":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("date"))
 			data, err := ec.unmarshalODateTime2ᚖtimeᚐTime(ctx, v)
@@ -7830,6 +8350,16 @@ func (ec *executionContext) _AuthPayload(ctx context.Context, sel ast.SelectionS
 			}
 		case "expiresIn":
 			out.Values[i] = ec._AuthPayload_expiresIn(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "refreshToken":
+			out.Values[i] = ec._AuthPayload_refreshToken(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "refreshExpiresIn":
+			out.Values[i] = ec._AuthPayload_refreshExpiresIn(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -8022,6 +8552,11 @@ func (ec *executionContext) _CategoryAmount(ctx context.Context, sel ast.Selecti
 			}
 		case "amount":
 			out.Values[i] = ec._CategoryAmount_amount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "byMember":
+			out.Values[i] = ec._CategoryAmount_byMember(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -8718,6 +9253,20 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "refreshToken":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_refreshToken(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "logout":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_logout(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -8806,6 +9355,49 @@ func (ec *executionContext) _PayerShare(ctx context.Context, sel ast.SelectionSe
 			}
 		case "amount":
 			out.Values[i] = ec._PayerShare_amount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var periodSummaryImplementors = []string{"PeriodSummary"}
+
+func (ec *executionContext) _PeriodSummary(ctx context.Context, sel ast.SelectionSet, obj *model.PeriodSummary) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, periodSummaryImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("PeriodSummary")
+		case "income":
+			out.Values[i] = ec._PeriodSummary_income(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "expense":
+			out.Values[i] = ec._PeriodSummary_expense(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -9026,6 +9618,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "periodSummary":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_periodSummary(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "transactions":
 			field := field
 
@@ -9162,6 +9776,11 @@ func (ec *executionContext) _Transaction(ctx context.Context, sel ast.SelectionS
 		case "payer":
 			out.Values[i] = ec._Transaction_payer(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "recipientUserId":
+			out.Values[i] = ec._Transaction_recipientUserId(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		case "date":
@@ -10137,6 +10756,16 @@ func (ec *executionContext) marshalNPayerShare2ᚖOurKoshelechekᚋgraphᚋmodel
 func (ec *executionContext) unmarshalNPayerShareInput2ᚖOurKoshelechekᚋgraphᚋmodelᚐPayerShareInput(ctx context.Context, v any) (*model.PayerShareInput, error) {
 	res, err := ec.unmarshalInputPayerShareInput(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNPeriodSummary2ᚖOurKoshelechekᚋgraphᚋmodelᚐPeriodSummary(ctx context.Context, sel ast.SelectionSet, v *model.PeriodSummary) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._PeriodSummary(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNRegisterInput2OurKoshelechekᚋgraphᚋmodelᚐRegisterInput(ctx context.Context, v any) (model.RegisterInput, error) {

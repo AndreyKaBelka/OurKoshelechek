@@ -5,8 +5,11 @@ export function formatMoney(kopecks: number): string {
   return rubles.toLocaleString("ru-RU").replace(/ /g, " ");
 }
 
-export function formatSigned(kopecks: number, type: "INCOME" | "EXPENSE"): string {
-  const sign = type === "INCOME" ? "+" : "−";
+/** Direction of money for the viewer: "in" (+), "out" (−) or "neutral" (no sign, e.g. someone else's transfer). */
+export type MoneyDirection = "in" | "out" | "neutral";
+
+export function formatSigned(kopecks: number, direction: MoneyDirection): string {
+  const sign = direction === "in" ? "+" : direction === "out" ? "−" : "";
   return `${sign}${formatMoney(Math.abs(kopecks))} ₽`;
 }
 
@@ -23,4 +26,9 @@ export function roublesToKopecks(roubles: number): number {
 
 export function kopecksToRoubleInput(kopecks: number): string {
   return kopecks ? String(Math.round(kopecks / 100)) : "";
+}
+
+/** Formats a digits-only rouble string with thousand separators: "3000" → "3 000". */
+export function formatRoubleInput(digits: string): string {
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 }

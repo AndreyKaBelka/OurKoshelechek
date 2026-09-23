@@ -18,6 +18,10 @@ export type AuthPayload = {
   accessToken: Scalars['String']['output'];
   /** Срок жизни accessToken в секундах. */
   expiresIn: Scalars['Int']['output'];
+  /** Срок жизни refreshToken в секундах. */
+  refreshExpiresIn: Scalars['Int']['output'];
+  /** Одноразовый долгоживущий токен для получения новой пары токенов через refreshToken. */
+  refreshToken: Scalars['String']['output'];
   /** Тип токена для заголовка Authorization, всегда "Bearer". */
   tokenType: Scalars['String']['output'];
 };
@@ -60,6 +64,8 @@ export type Category = {
 export type CategoryAmount = {
   __typename?: 'CategoryAmount';
   amount: Money;
+  /** Разбивка расхода категории по участникам (учитывает доли в разделённых операциях). */
+  byMember: Array<MemberAmount>;
   categoryId: Scalars['UUID']['output'];
 };
 
@@ -89,11 +95,14 @@ export type CreateGroupInput = {
 
 export type CreateTransactionInput = {
   amount: MoneyInput;
-  /** Обязателен для type = EXPENSE; должен отсутствовать для type = INCOME. */
+  /** Обязателен для type = EXPENSE; должен отсутствовать для type = INCOME и TRANSFER. */
   categoryId?: InputMaybe<Scalars['UUID']['input']>;
   comment?: InputMaybe<Scalars['String']['input']>;
   date: Scalars['DateTime']['input'];
+  /** Для type = TRANSFER — отправитель, mode должен быть USER. */
   payer: PayerInput;
+  /** Обязателен для type = TRANSFER (участник группы, отличный от отправителя); должен отсутствовать для остальных типов. */
+  recipientUserId?: InputMaybe<Scalars['UUID']['input']>;
   type: TransactionType;
 };
 
@@ -101,9 +110,9 @@ export type ExpenseSummary = {
   __typename?: 'ExpenseSummary';
   /** Разбивка расхода по категориям. */
   byCategory: Array<CategoryAmount>;
-  /** Разбивка расхода по участникам (учитывает доли в разделённых операциях). */
+  /** Разбивка расхода по участникам (учитывает доли в разделённых операциях и отправленные переводы другим участникам). */
   byMember: Array<MemberAmount>;
-  /** Суммарный расход группы за период. */
+  /** Суммарный расход группы за период (без переводов между участниками). */
   total: Money;
 };
 
@@ -177,9 +186,9 @@ export type HealthStatus =
 
 export type IncomeSummary = {
   __typename?: 'IncomeSummary';
-  /** Разбивка дохода по участникам. */
+  /** Разбивка дохода по участникам; включает полученные переводы от других участников. */
   byMember: Array<MemberAmount>;
-  /** Суммарный доход группы за период. */
+  /** Суммарный доход группы за период (без переводов между участниками). */
   total: Money;
 };
 
@@ -242,6 +251,10 @@ export type Mutation = {
   inviteMember: InviteResult;
   /** Войти по логину и паролю. */
   login: AuthPayload;
+  /** Отозвать refresh-токен (выход из аккаунта на этом устройстве). Не требует access-токена. */
+  logout: Scalars['Boolean']['output'];
+  /** Обменять refresh-токен на новую пару токенов. Переданный refresh-токен становится недействительным. */
+  refreshToken: AuthPayload;
   /** Зарегистрировать нового пользователя и сразу выдать токен. */
   register: AuthPayload;
   /** Удалить участника из группы. */
@@ -315,6 +328,16 @@ export type MutationInviteMemberArgs = {
 
 export type MutationLoginArgs = {
   input: LoginInput;
+};
+
+
+export type MutationLogoutArgs = {
+  refreshToken: Scalars['String']['input'];
+};
+
+
+export type MutationRefreshTokenArgs = {
+  refreshToken: Scalars['String']['input'];
 };
 
 
@@ -396,6 +419,12 @@ export type PayerShareInput = {
   userId: Scalars['UUID']['input'];
 };
 
+export type PeriodSummary = {
+  __typename?: 'PeriodSummary';
+  expense: ExpenseSummary;
+  income: IncomeSummary;
+};
+
 export type Query = {
   __typename?: 'Query';
   /** Текущий план бюджета за период: лимиты по категориям и справочный доход. period в формате YYYY-MM. */
@@ -414,6 +443,8 @@ export type Query = {
   health: HealthStatus;
   /** Текущий авторизованный пользователь (требует Authorization: Bearer <token>). */
   me: User;
+  /** Доходы и расходы группы за произвольный период. dateFrom и dateTo в формате YYYY-MM-DD, обе границы включительно. */
+  periodSummary: PeriodSummary;
   /** Агрегированная сводка группы за период (обзорная страница). period в формате YYYY-MM. */
   summary: GroupSummary;
   /** Получить одну операцию по id; null, если не найдена или не принадлежит группе. */
@@ -450,6 +481,13 @@ export type QueryGroupArgs = {
 };
 
 
+export type QueryPeriodSummaryArgs = {
+  dateFrom: Scalars['String']['input'];
+  dateTo: Scalars['String']['input'];
+  groupId: Scalars['UUID']['input'];
+};
+
+
 export type QuerySummaryArgs = {
   groupId: Scalars['UUID']['input'];
   period: Scalars['String']['input'];
@@ -477,7 +515,7 @@ export type RegisterInput = {
 export type Transaction = {
   __typename?: 'Transaction';
   amount: Money;
-  /** Категория расхода; null для type = INCOME — доходы категорий не имеют. */
+  /** Категория расхода; null для type = INCOME и TRANSFER. */
   category?: Maybe<Category>;
   comment?: Maybe<Scalars['String']['output']>;
   createdAt: Scalars['DateTime']['output'];
@@ -485,7 +523,10 @@ export type Transaction = {
   createdBy: Scalars['UUID']['output'];
   date: Scalars['DateTime']['output'];
   id: Scalars['UUID']['output'];
+  /** Для type = TRANSFER — отправитель перевода (всегда mode = USER). */
   payer: Payer;
+  /** Получатель перевода; задан только для type = TRANSFER. */
+  recipientUserId?: Maybe<Scalars['UUID']['output']>;
   type: TransactionType;
 };
 
@@ -496,6 +537,7 @@ export type TransactionFilter = {
   /** Верхняя граница по date, включительно. */
   dateTo?: InputMaybe<Scalars['DateTime']['input']>;
   payerUserId?: InputMaybe<Scalars['UUID']['input']>;
+  recipientUserId?: InputMaybe<Scalars['UUID']['input']>;
   type?: InputMaybe<TransactionType>;
 };
 
@@ -505,14 +547,16 @@ export type TransactionList = {
   hasMore: Scalars['Boolean']['output'];
   items: Array<Transaction>;
   /** Курсор для запроса следующей страницы через аргумент after; null, если дальше ничего нет. */
-  nextCursor?: Maybe<Scalars['String']['output']>;
+  nextCursor?: Maybe<Scalars['UUID']['output']>;
   /** Общее число операций, подходящих под filter, вне зависимости от размера текущей страницы. */
   total: Scalars['Int']['output'];
 };
 
 export type TransactionType =
   | 'EXPENSE'
-  | 'INCOME';
+  | 'INCOME'
+  /** Перевод от одного участника группы другому: для отправителя (payer.userId) это расход, для получателя (recipientUserId) — доход. Не влияет на общий баланс и итоги группы. */
+  | 'TRANSFER';
 
 export type UpdateCategoryInput = {
   icon?: InputMaybe<Scalars['String']['input']>;
@@ -536,6 +580,8 @@ export type UpdateTransactionInput = {
   comment?: InputMaybe<Scalars['String']['input']>;
   date?: InputMaybe<Scalars['DateTime']['input']>;
   payer?: InputMaybe<PayerInput>;
+  /** Получатель перевода; при смене типа на не-TRANSFER сбрасывается автоматически. */
+  recipientUserId?: InputMaybe<Scalars['UUID']['input']>;
   type?: InputMaybe<TransactionType>;
 };
 

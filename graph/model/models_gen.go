@@ -18,6 +18,10 @@ type AuthPayload struct {
 	TokenType string `json:"tokenType"`
 	// Срок жизни accessToken в секундах.
 	ExpiresIn int `json:"expiresIn"`
+	// Одноразовый долгоживущий токен для получения новой пары токенов через refreshToken.
+	RefreshToken string `json:"refreshToken"`
+	// Срок жизни refreshToken в секундах.
+	RefreshExpiresIn int `json:"refreshExpiresIn"`
 }
 
 // Бюджет — это план расходов по категориям, а не процент от дохода: он не
@@ -53,6 +57,8 @@ type Category struct {
 type CategoryAmount struct {
 	CategoryID uuid.UUID `json:"categoryId"`
 	Amount     *Money    `json:"amount"`
+	// Разбивка расхода категории по участникам (учитывает доли в разделённых операциях).
+	ByMember []*MemberAmount `json:"byMember"`
 }
 
 type ContributeGoalInput struct {
@@ -82,19 +88,22 @@ type CreateGroupInput struct {
 type CreateTransactionInput struct {
 	Type   TransactionType `json:"type"`
 	Amount *MoneyInput     `json:"amount"`
-	// Обязателен для type = EXPENSE; должен отсутствовать для type = INCOME.
-	CategoryID *uuid.UUID  `json:"categoryId,omitempty"`
-	Payer      *PayerInput `json:"payer"`
-	Date       time.Time   `json:"date"`
-	Comment    *string     `json:"comment,omitempty"`
+	// Обязателен для type = EXPENSE; должен отсутствовать для type = INCOME и TRANSFER.
+	CategoryID *uuid.UUID `json:"categoryId,omitempty"`
+	// Для type = TRANSFER — отправитель, mode должен быть USER.
+	Payer *PayerInput `json:"payer"`
+	// Обязателен для type = TRANSFER (участник группы, отличный от отправителя); должен отсутствовать для остальных типов.
+	RecipientUserID *uuid.UUID `json:"recipientUserId,omitempty"`
+	Date            time.Time  `json:"date"`
+	Comment         *string    `json:"comment,omitempty"`
 }
 
 type ExpenseSummary struct {
-	// Суммарный расход группы за период.
+	// Суммарный расход группы за период (без переводов между участниками).
 	Total *Money `json:"total"`
 	// Разбивка расхода по категориям.
 	ByCategory []*CategoryAmount `json:"byCategory"`
-	// Разбивка расхода по участникам (учитывает доли в разделённых операциях).
+	// Разбивка расхода по участникам (учитывает доли в разделённых операциях и отправленные переводы другим участникам).
 	ByMember []*MemberAmount `json:"byMember"`
 }
 
@@ -147,9 +156,9 @@ type GroupSummaryItem struct {
 }
 
 type IncomeSummary struct {
-	// Суммарный доход группы за период.
+	// Суммарный доход группы за период (без переводов между участниками).
 	Total *Money `json:"total"`
-	// Разбивка дохода по участникам.
+	// Разбивка дохода по участникам; включает полученные переводы от других участников.
 	ByMember []*MemberAmount `json:"byMember"`
 }
 
@@ -217,6 +226,11 @@ type PayerShareInput struct {
 	Amount *MoneyInput `json:"amount"`
 }
 
+type PeriodSummary struct {
+	Income  *IncomeSummary  `json:"income"`
+	Expense *ExpenseSummary `json:"expense"`
+}
+
 type Query struct {
 }
 
@@ -229,20 +243,24 @@ type Transaction struct {
 	ID     uuid.UUID       `json:"id"`
 	Type   TransactionType `json:"type"`
 	Amount *Money          `json:"amount"`
-	// Категория расхода; null для type = INCOME — доходы категорий не имеют.
+	// Категория расхода; null для type = INCOME и TRANSFER.
 	Category *Category `json:"category,omitempty"`
-	Payer    *Payer    `json:"payer"`
-	Date     time.Time `json:"date"`
-	Comment  *string   `json:"comment,omitempty"`
+	// Для type = TRANSFER — отправитель перевода (всегда mode = USER).
+	Payer *Payer `json:"payer"`
+	// Получатель перевода; задан только для type = TRANSFER.
+	RecipientUserID *uuid.UUID `json:"recipientUserId,omitempty"`
+	Date            time.Time  `json:"date"`
+	Comment         *string    `json:"comment,omitempty"`
 	// Пользователь, создавший операцию (может отличаться от payer).
 	CreatedBy uuid.UUID `json:"createdBy"`
 	CreatedAt time.Time `json:"createdAt"`
 }
 
 type TransactionFilter struct {
-	Type        *TransactionType `json:"type,omitempty"`
-	CategoryID  *uuid.UUID       `json:"categoryId,omitempty"`
-	PayerUserID *uuid.UUID       `json:"payerUserId,omitempty"`
+	Type            *TransactionType `json:"type,omitempty"`
+	CategoryID      *uuid.UUID       `json:"categoryId,omitempty"`
+	PayerUserID     *uuid.UUID       `json:"payerUserId,omitempty"`
+	RecipientUserID *uuid.UUID       `json:"recipientUserId,omitempty"`
 	// Нижняя граница по date, включительно.
 	DateFrom *time.Time `json:"dateFrom,omitempty"`
 	// Верхняя граница по date, включительно.
@@ -252,7 +270,7 @@ type TransactionFilter struct {
 type TransactionList struct {
 	Items []*Transaction `json:"items"`
 	// Курсор для запроса следующей страницы через аргумент after; null, если дальше ничего нет.
-	NextCursor *string `json:"nextCursor,omitempty"`
+	NextCursor *uuid.UUID `json:"nextCursor,omitempty"`
 	// true, если есть ещё операции после текущей страницы.
 	HasMore bool `json:"hasMore"`
 	// Общее число операций, подходящих под filter, вне зависимости от размера текущей страницы.
@@ -280,8 +298,10 @@ type UpdateTransactionInput struct {
 	Amount     *MoneyInput      `json:"amount,omitempty"`
 	CategoryID *uuid.UUID       `json:"categoryId,omitempty"`
 	Payer      *PayerInput      `json:"payer,omitempty"`
-	Date       *time.Time       `json:"date,omitempty"`
-	Comment    *string          `json:"comment,omitempty"`
+	// Получатель перевода; при смене типа на не-TRANSFER сбрасывается автоматически.
+	RecipientUserID *uuid.UUID `json:"recipientUserId,omitempty"`
+	Date            *time.Time `json:"date,omitempty"`
+	Comment         *string    `json:"comment,omitempty"`
 }
 
 type User struct {
@@ -522,16 +542,19 @@ type TransactionType string
 const (
 	TransactionTypeIncome  TransactionType = "INCOME"
 	TransactionTypeExpense TransactionType = "EXPENSE"
+	// Перевод от одного участника группы другому: для отправителя (payer.userId) это расход, для получателя (recipientUserId) — доход. Не влияет на общий баланс и итоги группы.
+	TransactionTypeTransfer TransactionType = "TRANSFER"
 )
 
 var AllTransactionType = []TransactionType{
 	TransactionTypeIncome,
 	TransactionTypeExpense,
+	TransactionTypeTransfer,
 }
 
 func (e TransactionType) IsValid() bool {
 	switch e {
-	case TransactionTypeIncome, TransactionTypeExpense:
+	case TransactionTypeIncome, TransactionTypeExpense, TransactionTypeTransfer:
 		return true
 	}
 	return false

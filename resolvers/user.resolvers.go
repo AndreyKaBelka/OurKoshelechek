@@ -20,6 +20,16 @@ func (r *mutationResolver) Login(ctx context.Context, input model.LoginInput) (*
 	return r.UserService.Login(ctx, input)
 }
 
+// RefreshToken is the resolver for the refreshToken field.
+func (r *mutationResolver) RefreshToken(ctx context.Context, refreshToken string) (*model.AuthPayload, error) {
+	return r.UserService.Refresh(ctx, refreshToken)
+}
+
+// Logout is the resolver for the logout field.
+func (r *mutationResolver) Logout(ctx context.Context, refreshToken string) (bool, error) {
+	return r.UserService.Logout(ctx, refreshToken)
+}
+
 // Me is the resolver for the me field.
 func (r *queryResolver) Me(ctx context.Context) (*model.User, error) {
 	return r.UserService.Me(ctx)

@@ -36,3 +36,42 @@ query Summary($groupId: UUID!, $period: String!) {
     }
   }
 }
+
+query PeriodSummary($groupId: UUID!, $dateFrom: String!, $dateTo: String!) {
+  periodSummary(groupId: $groupId, dateFrom: $dateFrom, dateTo: $dateTo) {
+    income {
+      total {
+        amount
+      }
+      byMember {
+        userId
+        amount {
+          amount
+        }
+      }
+    }
+    expense {
+      total {
+        amount
+      }
+      byCategory {
+        categoryId
+        amount {
+          amount
+        }
+        byMember {
+          userId
+          amount {
+            amount
+          }
+        }
+      }
+      byMember {
+        userId
+        amount {
+          amount
+        }
+      }
+    }
+  }
+}

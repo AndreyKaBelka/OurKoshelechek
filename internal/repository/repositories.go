@@ -9,6 +9,7 @@ import (
 	"OurKoshelechek/internal/domain/category"
 	"OurKoshelechek/internal/domain/goal"
 	"OurKoshelechek/internal/domain/group"
+	"OurKoshelechek/internal/domain/refreshtoken"
 	"OurKoshelechek/internal/domain/transaction"
 	"OurKoshelechek/internal/domain/user"
 	"OurKoshelechek/internal/platform"
@@ -24,6 +25,7 @@ type Repositories struct {
 	PayerShare   *transaction.PayerShareRepository
 	Goal         *goal.Repository
 	Contribution *goal.ContributionRepository
+	RefreshToken *refreshtoken.Repository
 }
 
 func New(db platform.DBTX) Repositories {
@@ -37,6 +39,7 @@ func New(db platform.DBTX) Repositories {
 		PayerShare:   transaction.NewPayerShareRepository(db),
 		Goal:         goal.New(db),
 		Contribution: goal.NewContributionRepository(db),
+		RefreshToken: refreshtoken.New(db),
 	}
 }
 

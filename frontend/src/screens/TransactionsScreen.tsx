@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAppStore, authErrorMessage } from "../store/store";
 import { formatMoney, kopecksToRoubleInput, roublesToKopecks } from "../lib/money";
-import { txAmountColor, txAmountLabel, txMeta, txTitle } from "../lib/txDisplay";
+import { AmountInput } from "../components/AmountInput";
+import { txAmountColor, txAmountLabel, txIcon, txMeta, txTitle } from "../lib/txDisplay";
 import { useCategoriesQuery } from "../graphql/operations/categories.generated";
 import {
   useCreateTransactionMutation,
@@ -10,15 +11,17 @@ import {
   useUpdateTransactionMutation,
 } from "../graphql/operations/transactions.generated";
 import type { TransactionsQuery } from "../graphql/operations/transactions.generated";
-import type { PayerInput, TransactionType } from "../graphql/types";
+import type { PayerInput, TransactionFilter, TransactionType } from "../graphql/types";
 
 type TransactionItem = TransactionsQuery["transactions"]["items"][number];
 
 type PayerChoice = "you" | "partner" | "split";
-type Filter = "all" | "INCOME" | "EXPENSE";
+type TransferDirection = "toPartner" | "fromPartner";
+type Filter = "all" | "INCOME" | "EXPENSE" | "TRANSFER";
 
 const categoriesContext = { additionalTypenames: ["Category"] };
 const transactionsContext = { additionalTypenames: ["Transaction", "GoalContribution"] };
+const PAGE_SIZE = 30;
 
 export function TransactionsScreen() {
   const { currentUser, activeGroup } = useAppStore();
@@ -34,6 +37,7 @@ export function TransactionsScreen() {
   const [comment, setComment] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [payerChoice, setPayerChoice] = useState<PayerChoice>("split");
+  const [transferDirection, setTransferDirection] = useState<TransferDirection>("toPartner");
   const [shareYou, setShareYou] = useState("");
   const [sharePartner, setSharePartner] = useState("");
   const [sharesAuto, setSharesAuto] = useState(true);
@@ -46,11 +50,6 @@ export function TransactionsScreen() {
 
   if (!categoryId && categories.length > 0) setCategoryId(categories[0].id);
 
-  const [transactionsResult] = useTransactionsQuery({
-    variables: { groupId, filter: filter === "all" ? undefined : { type: filter }, first: 50 },
-    pause: !groupId,
-    context: transactionsContext,
-  });
   const [, createTransaction] = useCreateTransactionMutation();
   const [, updateTransaction] = useUpdateTransactionMutation();
   const [, deleteTransaction] = useDeleteTransactionMutation();
@@ -59,9 +58,13 @@ export function TransactionsScreen() {
   const shareYouK = roublesToKopecks(parseInt(shareYou.replace(/\D/g, ""), 10) || 0);
   const sharePartnerK = roublesToKopecks(parseInt(sharePartner.replace(/\D/g, ""), 10) || 0);
   const sharesSum = shareYouK + sharePartnerK;
-  const isSplit = payerChoice === "split";
-  const isIncome = type === "INCOME";
-  const formValid = !!total && (isIncome || !!categoryId) && (!isSplit || sharesSum === total);
+  const isTransfer = type === "TRANSFER";
+  const isSplit = !isTransfer && payerChoice === "split";
+  const formValid =
+    !!total &&
+    (type !== "EXPENSE" || !!categoryId) &&
+    (!isSplit || sharesSum === total) &&
+    (!isTransfer || !!partner);
 
   if (!activeGroup) return null;
 
@@ -101,7 +104,13 @@ export function TransactionsScreen() {
     // сортируется ниже более раннего доната того же дня.
     const dateIso = date === now.toISOString().slice(0, 10) ? now.toISOString() : `${date}T00:00:00Z`;
     let payer: PayerInput;
-    if (payerChoice === "you") payer = { mode: "USER", userId: currentUserId, shares: null };
+    let recipientUserId: string | null = null;
+    if (isTransfer) {
+      const partnerId = partner?.userId ?? currentUserId;
+      const [from, to] = transferDirection === "toPartner" ? [currentUserId, partnerId] : [partnerId, currentUserId];
+      payer = { mode: "USER", userId: from, shares: null };
+      recipientUserId = to;
+    } else if (payerChoice === "you") payer = { mode: "USER", userId: currentUserId, shares: null };
     else if (payerChoice === "partner") payer = { mode: "USER", userId: partner?.userId ?? currentUserId, shares: null };
     else
       payer = {
@@ -113,7 +122,15 @@ export function TransactionsScreen() {
         ],
       };
 
-    const input = { type, amount: { amount: total }, categoryId: isIncome ? null : categoryId, payer, date: dateIso, comment: comment.trim() || null };
+    const input = {
+      type,
+      amount: { amount: total },
+      categoryId: type === "EXPENSE" ? categoryId : null,
+      payer,
+      recipientUserId,
+      date: dateIso,
+      comment: comment.trim() || null,
+    };
     const result = editingId
       ? await updateTransaction({ groupId: activeGroup.id, transactionId: editingId, input })
       : await createTransaction({ groupId: activeGroup.id, input });
@@ -133,6 +150,7 @@ export function TransactionsScreen() {
     setComment("");
     setCategoryId("");
     setPayerChoice("split");
+    setTransferDirection("toPartner");
     setShareYou("");
     setSharePartner("");
     setSharesAuto(true);
@@ -147,7 +165,9 @@ export function TransactionsScreen() {
     setAmount(kopecksToRoubleInput(t.amount.amount));
     setComment(t.comment ?? "");
     if (t.category) setCategoryId(t.category.id);
-    if (t.payer.mode === "SPLIT" && t.payer.shares) {
+    if (t.type === "TRANSFER") {
+      setTransferDirection(t.payer.userId === currentUserId ? "toPartner" : "fromPartner");
+    } else if (t.payer.mode === "SPLIT" && t.payer.shares) {
       setPayerChoice("split");
       setSharesAuto(false);
       setShareYou(kopecksToRoubleInput(t.payer.shares.find((s) => s.userId === currentUserId)?.amount.amount ?? 0));
@@ -170,7 +190,6 @@ export function TransactionsScreen() {
     setError("");
   }
 
-  const items = transactionsResult.data?.transactions.items ?? [];
   const members = activeGroup.members.map((m) => ({ userId: m.userId, username: m.username }));
 
   const splitHint = !total
@@ -199,12 +218,13 @@ export function TransactionsScreen() {
         <div className="segmented" style={{ marginBottom: 16 }}>
           <button type="button" className={type === "EXPENSE" ? "active" : ""} style={type === "EXPENSE" ? { background: "var(--rust)", color: "#fff" } : undefined} onClick={() => setType("EXPENSE")}>Расход</button>
           <button type="button" className={type === "INCOME" ? "active" : ""} style={type === "INCOME" ? { background: "var(--forest)", color: "#fff" } : undefined} onClick={() => setType("INCOME")}>Доход</button>
+          <button type="button" className={isTransfer ? "active" : ""} style={isTransfer ? { background: "var(--gold)", color: "#fff" } : undefined} onClick={() => setType("TRANSFER")}>Перевод</button>
         </div>
 
         <div style={{ marginBottom: 14 }}>
           <label className="field-label">Сумма</label>
           <div style={{ display: "flex", alignItems: "center", border: "1px solid var(--border)", borderRadius: 10, padding: "6px 14px" }}>
-            <input type="text" inputMode="numeric" placeholder="0" className="serif" value={amount} onChange={(e) => onAmountChange(e.target.value)} style={{ flex: 1, border: "none", outline: "none", fontSize: 24, fontWeight: 600, background: "none", minWidth: 0 }} />
+            <AmountInput placeholder="0" className="serif" value={amount} onChange={onAmountChange} style={{ flex: 1, border: "none", outline: "none", fontSize: 24, fontWeight: 600, background: "none", minWidth: 0 }} />
             <span className="serif" style={{ fontSize: 18, color: "var(--ink-faint)" }}>₽</span>
           </div>
         </div>
@@ -214,7 +234,7 @@ export function TransactionsScreen() {
           <input type="text" className="field" placeholder="Например, продукты во ВкусВилле" value={comment} onChange={(e) => setComment(e.target.value)} />
         </div>
 
-        {!isIncome && (
+        {type === "EXPENSE" && (
           <div style={{ marginBottom: 14 }}>
             <label className="field-label">Категория</label>
             <select className="field" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
@@ -226,54 +246,75 @@ export function TransactionsScreen() {
           </div>
         )}
 
-        <div style={{ marginBottom: 14 }}>
-          <label className="field-label">Кто платил</label>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button type="button" className={`choice-btn${payerChoice === "you" ? " active-forest" : ""}`} onClick={() => setPayerChoice("you")}>Вы</button>
-            <button type="button" className={`choice-btn${payerChoice === "partner" ? " active-partner" : ""}`} onClick={() => setPayerChoice("partner")}>{partner?.username ?? "Партнёр"}</button>
-            <button
-              type="button"
-              className={`choice-btn${payerChoice === "split" ? " active-forest" : ""}`}
-              onClick={() => {
-                setPayerChoice("split");
-                setSharesAuto(true);
-                applyEvenSplit(total);
-              }}
-            >
-              Вместе
-            </button>
+        {isTransfer && (
+          <div style={{ marginBottom: 14 }}>
+            <label className="field-label">Кто кому переводит</label>
+            {partner ? (
+              <>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button type="button" className={`choice-btn${transferDirection === "toPartner" ? " active-forest" : ""}`} onClick={() => setTransferDirection("toPartner")}>Вы → {partner.username}</button>
+                  <button type="button" className={`choice-btn${transferDirection === "fromPartner" ? " active-partner" : ""}`} onClick={() => setTransferDirection("fromPartner")}>{partner.username} → Вы</button>
+                </div>
+                <p style={{ marginTop: 8, fontSize: 11.5, color: "var(--ink-soft)" }}>
+                  {transferDirection === "toPartner" ? "У вас это будет расход" : `У ${partner.username} это будет расход`}, у получателя — доход. Общий баланс не меняется.
+                </p>
+              </>
+            ) : (
+              <p style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>Для перевода в группе должен быть ещё один участник</p>
+            )}
           </div>
+        )}
 
-          {isSplit && (
-            <div style={{ marginTop: 12, padding: 14, background: "var(--ivory)", border: "1px solid var(--border)", borderRadius: 12 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.03em", textTransform: "uppercase", color: "var(--ink-soft)" }}>Кто сколько вложил</span>
-                <button type="button" className="link-btn" style={{ color: "var(--forest-dark)" }} onClick={() => { setSharesAuto(true); applyEvenSplit(total); }}>Поровну</button>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                  <div className="avatar avatar-you" style={{ width: 22, height: 22, fontSize: 8.5 }}>Вы</div>
-                  <span style={{ fontSize: 13, fontWeight: 600 }}>Вы</span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                  <input type="number" inputMode="numeric" className="amt-input" value={shareYou} onChange={(e) => onShareChange("you", e.target.value)} aria-label="Сколько вложили вы" />
-                  <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>₽</span>
-                </div>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                  <div className="avatar avatar-partner" style={{ width: 22, height: 22, fontSize: 9 }}>{(partner?.username ?? "П").slice(0, 1).toUpperCase()}</div>
-                  <span style={{ fontSize: 13, fontWeight: 600 }}>{partner?.username ?? "Партнёр"}</span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                  <input type="number" inputMode="numeric" className="amt-input" value={sharePartner} onChange={(e) => onShareChange("partner", e.target.value)} aria-label="Сколько вложил партнёр" />
-                  <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>₽</span>
-                </div>
-              </div>
-              <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border)", fontSize: 11.5, fontWeight: 600, color: total && sharesSum === total ? "var(--forest-dark)" : "var(--rust)" }}>{splitHint}</div>
+        {!isTransfer && (
+          <div style={{ marginBottom: 14 }}>
+            <label className="field-label">Кто платил</label>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button type="button" className={`choice-btn${payerChoice === "you" ? " active-forest" : ""}`} onClick={() => setPayerChoice("you")}>Вы</button>
+              <button type="button" className={`choice-btn${payerChoice === "partner" ? " active-partner" : ""}`} onClick={() => setPayerChoice("partner")}>{partner?.username ?? "Партнёр"}</button>
+              <button
+                type="button"
+                className={`choice-btn${payerChoice === "split" ? " active-forest" : ""}`}
+                onClick={() => {
+                  setPayerChoice("split");
+                  setSharesAuto(true);
+                  applyEvenSplit(total);
+                }}
+              >
+                Вместе
+              </button>
             </div>
-          )}
-        </div>
+
+            {isSplit && (
+              <div style={{ marginTop: 12, padding: 14, background: "var(--ivory)", border: "1px solid var(--border)", borderRadius: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                  <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.03em", textTransform: "uppercase", color: "var(--ink-soft)" }}>Кто сколько вложил</span>
+                  <button type="button" className="link-btn" style={{ color: "var(--forest-dark)" }} onClick={() => { setSharesAuto(true); applyEvenSplit(total); }}>Поровну</button>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                    <div className="avatar avatar-you" style={{ width: 22, height: 22, fontSize: 8.5 }}>Вы</div>
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>Вы</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    <AmountInput className="amt-input" value={shareYou} onChange={(d) => onShareChange("you", d)} aria-label="Сколько вложили вы" />
+                    <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>₽</span>
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                    <div className="avatar avatar-partner" style={{ width: 22, height: 22, fontSize: 9 }}>{(partner?.username ?? "П").slice(0, 1).toUpperCase()}</div>
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>{partner?.username ?? "Партнёр"}</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    <AmountInput className="amt-input" value={sharePartner} onChange={(d) => onShareChange("partner", d)} aria-label="Сколько вложил партнёр" />
+                    <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>₽</span>
+                  </div>
+                </div>
+                <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border)", fontSize: 11.5, fontWeight: 600, color: total && sharesSum === total ? "var(--forest-dark)" : "var(--rust)" }}>{splitHint}</div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div style={{ marginBottom: 14 }}>
           <label className="field-label">Дата</label>
@@ -283,7 +324,7 @@ export function TransactionsScreen() {
         {error && <div className="auth-error">{error}</div>}
 
         <button type="button" className={`submit-btn${type === "EXPENSE" ? " rust" : ""}`} disabled={!formValid} onClick={submit}>
-          {isEditing ? "Сохранить изменения" : type === "EXPENSE" ? "Добавить расход" : "Добавить доход"}
+          {isEditing ? "Сохранить изменения" : type === "EXPENSE" ? "Добавить расход" : isTransfer ? "Добавить перевод" : "Добавить доход"}
         </button>
 
         {isEditing && (
@@ -310,29 +351,108 @@ export function TransactionsScreen() {
           <button type="button" className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>Все</button>
           <button type="button" className={filter === "INCOME" ? "active" : ""} onClick={() => setFilter("INCOME")}>Доходы</button>
           <button type="button" className={filter === "EXPENSE" ? "active" : ""} onClick={() => setFilter("EXPENSE")}>Расходы</button>
+          <button type="button" className={filter === "TRANSFER" ? "active" : ""} onClick={() => setFilter("TRANSFER")}>Переводы</button>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          {items.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              className="tx-row"
-              onClick={() => startEdit(t)}
-              style={{ width: "100%", border: "none", background: t.id === editingId ? "var(--ivory)" : "none", borderRadius: 10, cursor: "pointer", textAlign: "left" }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                <div className="tx-icon"><span style={{ fontSize: 14 }}>{t.category?.icon || "💰"}</span></div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
-                  <span className="tx-title">{txTitle(t)}</span>
-                  <span className="tx-meta">{txMeta(t, members, currentUserId)}</span>
-                </div>
-              </div>
-              <span className="tx-amount" style={{ color: txAmountColor(t) }}>{txAmountLabel(t)}</span>
-            </button>
-          ))}
-          {items.length === 0 && <p style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>Нет операций</p>}
+          <TransactionsPage
+            key={`${groupId}:${filter}`}
+            groupId={groupId}
+            filter={filter === "all" ? undefined : { type: filter }}
+            members={members}
+            currentUserId={currentUserId}
+            editingId={editingId}
+            onEdit={startEdit}
+          />
         </div>
       </div>
     </div>
+  );
+}
+
+type TransactionsPageProps = {
+  groupId: string;
+  filter?: TransactionFilter;
+  after?: string;
+  members: { userId: string; username: string }[];
+  currentUserId?: string;
+  editingId: string | null;
+  onEdit: (t: TransactionItem) => void;
+};
+
+// One page of the history. Each page is its own urql query, so a mutation invalidating
+// "Transaction" refetches every loaded page, and the next page's cursor is always read
+// from the live data of the previous one (a deleted last row can't leave a stale cursor).
+// Scrolling to the sentinel below the last row mounts the next page.
+function TransactionsPage({ groupId, filter, after, members, currentUserId, editingId, onEdit }: TransactionsPageProps) {
+  const [result, reexecute] = useTransactionsQuery({
+    variables: { groupId, filter, first: PAGE_SIZE, after },
+    pause: !groupId,
+    context: transactionsContext,
+  });
+  const [loadNext, setLoadNext] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  const list = result.data?.transactions;
+  const nextCursor = list?.hasMore ? list.nextCursor : null;
+  const waitingForScroll = !!nextCursor && !loadNext;
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!waitingForScroll || !sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) setLoadNext(true);
+      },
+      // Start loading a bit before the user actually reaches the end.
+      { rootMargin: "300px" },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [waitingForScroll]);
+
+  const items = list?.items ?? [];
+  return (
+    <>
+      {items.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          className="tx-row"
+          onClick={() => onEdit(t)}
+          style={{ width: "100%", border: "none", background: t.id === editingId ? "var(--ivory)" : "none", borderRadius: 10, cursor: "pointer", textAlign: "left" }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+            <div className="tx-icon"><span style={{ fontSize: 14 }}>{txIcon(t)}</span></div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
+              <span className="tx-title">{txTitle(t)}</span>
+              <span className="tx-meta">{txMeta(t, members, currentUserId)}</span>
+            </div>
+          </div>
+          <span className="tx-amount" style={{ color: txAmountColor(t, currentUserId) }}>{txAmountLabel(t, currentUserId)}</span>
+        </button>
+      ))}
+      {!after && !result.fetching && !result.error && items.length === 0 && (
+        <p style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>Нет операций</p>
+      )}
+      {result.fetching && !list && <p style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>Подождите…</p>}
+      {result.error && !list && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12.5, color: "var(--rust)" }}>
+          Не удалось загрузить операции
+          <button type="button" className="link-btn" onClick={() => reexecute({ requestPolicy: "network-only" })}>Повторить</button>
+        </div>
+      )}
+      {waitingForScroll && <div ref={sentinelRef} aria-hidden style={{ height: 1 }} />}
+      {loadNext && nextCursor && (
+        <TransactionsPage
+          groupId={groupId}
+          filter={filter}
+          after={nextCursor}
+          members={members}
+          currentUserId={currentUserId}
+          editingId={editingId}
+          onEdit={onEdit}
+        />
+      )}
+    </>
   );
 }

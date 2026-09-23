@@ -16,6 +16,15 @@ export type SummaryQueryVariables = Exact<{
 
 export type SummaryQuery = { summary: { balance: { amount: number }, balanceDeltaMonth: { amount: number }, income: { total: { amount: number }, byMember: Array<{ userId: string, amount: { amount: number } }> }, expense: { total: { amount: number }, byCategory: Array<{ categoryId: string, amount: { amount: number } }>, byMember: Array<{ userId: string, amount: { amount: number } }> } } };
 
+export type PeriodSummaryQueryVariables = Exact<{
+  groupId: string;
+  dateFrom: string;
+  dateTo: string;
+}>;
+
+
+export type PeriodSummaryQuery = { periodSummary: { income: { total: { amount: number }, byMember: Array<{ userId: string, amount: { amount: number } }> }, expense: { total: { amount: number }, byCategory: Array<{ categoryId: string, amount: { amount: number }, byMember: Array<{ userId: string, amount: { amount: number } }> }>, byMember: Array<{ userId: string, amount: { amount: number } }> } } };
+
 
 export const SummaryDocument = gql`
     query Summary($groupId: UUID!, $period: String!) {
@@ -60,4 +69,48 @@ export const SummaryDocument = gql`
 
 export function useSummaryQuery(options: Omit<Urql.UseQueryArgs<SummaryQueryVariables>, 'query'>) {
   return Urql.useQuery<SummaryQuery, SummaryQueryVariables>({ query: SummaryDocument, ...options });
+};
+export const PeriodSummaryDocument = gql`
+    query PeriodSummary($groupId: UUID!, $dateFrom: String!, $dateTo: String!) {
+  periodSummary(groupId: $groupId, dateFrom: $dateFrom, dateTo: $dateTo) {
+    income {
+      total {
+        amount
+      }
+      byMember {
+        userId
+        amount {
+          amount
+        }
+      }
+    }
+    expense {
+      total {
+        amount
+      }
+      byCategory {
+        categoryId
+        amount {
+          amount
+        }
+        byMember {
+          userId
+          amount {
+            amount
+          }
+        }
+      }
+      byMember {
+        userId
+        amount {
+          amount
+        }
+      }
+    }
+  }
+}
+    `;
+
+export function usePeriodSummaryQuery(options: Omit<Urql.UseQueryArgs<PeriodSummaryQueryVariables>, 'query'>) {
+  return Urql.useQuery<PeriodSummaryQuery, PeriodSummaryQueryVariables>({ query: PeriodSummaryDocument, ...options });
 };

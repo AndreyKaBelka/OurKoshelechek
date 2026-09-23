@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAppStore, authErrorMessage } from "../store/store";
 import { formatMoney, roublesToKopecks } from "../lib/money";
+import { AmountInput } from "../components/AmountInput";
 import { goalIcon, TwoPathIcon } from "../lib/icons";
 import { currentPeriod } from "../lib/period";
 import { BottomSheet } from "../components/BottomSheet";
@@ -274,7 +275,7 @@ export function GoalsScreen() {
           <div style={{ marginBottom: 14 }}>
             <label className="field-label">Сумма цели</label>
             <div style={{ display: "flex", alignItems: "center", border: "1px solid var(--border)", borderRadius: 10, padding: "6px 14px" }}>
-              <input type="text" inputMode="numeric" placeholder="0" className="serif" value={target} onChange={(e) => setTarget(e.target.value.replace(/\D/g, ""))} style={{ flex: 1, border: "none", outline: "none", fontSize: 22, fontWeight: 600, background: "none", minWidth: 0 }} />
+              <AmountInput placeholder="0" className="serif" value={target} onChange={setTarget} style={{ flex: 1, border: "none", outline: "none", fontSize: 22, fontWeight: 600, background: "none", minWidth: 0 }} />
               <span className="serif" style={{ fontSize: 17, color: "var(--ink-faint)" }}>₽</span>
             </div>
           </div>
@@ -291,7 +292,7 @@ export function GoalsScreen() {
             <div style={{ marginBottom: 16 }}>
               <label className="field-label">Уже отложено</label>
               <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <input type="number" inputMode="numeric" className="amt-input" style={{ flex: 1 }} value={saved} onChange={(e) => setSaved(e.target.value.replace(/\D/g, ""))} />
+                <AmountInput className="amt-input" style={{ flex: 1 }} value={saved} onChange={setSaved} />
                 <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>₽</span>
               </div>
             </div>
@@ -329,7 +330,7 @@ export function GoalsScreen() {
             <div style={{ marginBottom: 8 }}>
               <label className="field-label">Своя сумма</label>
               <div style={{ display: "flex", alignItems: "center", gap: 8, border: `1px solid ${exceedsCurrent ? "var(--partner)" : "var(--border)"}`, borderRadius: 10, padding: "6px 14px" }}>
-                <input type="text" inputMode="numeric" placeholder="0" className="serif" value={topupAmount} onChange={(e) => setTopupAmount(e.target.value.replace(/\D/g, ""))} style={{ flex: 1, border: "none", outline: "none", fontSize: 20, fontWeight: 600, background: "none", minWidth: 0 }} />
+                <AmountInput placeholder="0" className="serif" value={topupAmount} onChange={setTopupAmount} style={{ flex: 1, border: "none", outline: "none", fontSize: 20, fontWeight: 600, background: "none", minWidth: 0 }} />
                 <span className="serif" style={{ fontSize: 16, color: "var(--ink-faint)" }}>₽</span>
               </div>
             </div>

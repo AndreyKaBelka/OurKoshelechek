@@ -6,6 +6,7 @@ import { InstallBanner } from "./components/InstallBanner";
 import { AuthScreen } from "./screens/AuthScreen";
 import { OverviewScreen } from "./screens/OverviewScreen";
 import { TransactionsScreen } from "./screens/TransactionsScreen";
+import { StatsScreen } from "./screens/StatsScreen";
 import { BudgetScreen } from "./screens/BudgetScreen";
 import { GoalsScreen } from "./screens/GoalsScreen";
 import { GroupScreen } from "./screens/GroupScreen";
@@ -27,6 +28,7 @@ function AppShell() {
 
         {effectiveScreen === "main" && <OverviewScreen onNavigate={navigate} />}
         {effectiveScreen === "tx" && <TransactionsScreen />}
+        {effectiveScreen === "stats" && <StatsScreen />}
         {effectiveScreen === "budget" && <BudgetScreen onNavigate={navigate} />}
         {effectiveScreen === "goals" && <GoalsScreen />}
         {effectiveScreen === "group" && <GroupScreen onNavigate={navigate} />}

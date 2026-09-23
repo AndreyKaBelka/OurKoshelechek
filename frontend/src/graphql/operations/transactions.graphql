@@ -1,5 +1,5 @@
-query Transactions($groupId: UUID!, $filter: TransactionFilter, $first: Int) {
-  transactions(groupId: $groupId, filter: $filter, first: $first) {
+query Transactions($groupId: UUID!, $filter: TransactionFilter, $first: Int, $after: UUID) {
+  transactions(groupId: $groupId, filter: $filter, first: $first, after: $after) {
     items {
       id
       type
@@ -21,11 +21,13 @@ query Transactions($groupId: UUID!, $filter: TransactionFilter, $first: Int) {
           }
         }
       }
+      recipientUserId
       date
       comment
       createdBy
       createdAt
     }
+    nextCursor
     hasMore
     total
   }
@@ -53,6 +55,7 @@ mutation CreateTransaction($groupId: UUID!, $input: CreateTransactionInput!) {
         }
       }
     }
+    recipientUserId
     date
     comment
     createdBy
@@ -82,6 +85,7 @@ mutation UpdateTransaction($groupId: UUID!, $transactionId: UUID!, $input: Updat
         }
       }
     }
+    recipientUserId
     date
     comment
     createdBy

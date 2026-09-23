@@ -5,18 +5,32 @@ query Me {
   }
 }
 
+fragment AuthTokens on AuthPayload {
+  accessToken
+  tokenType
+  expiresIn
+  refreshToken
+  refreshExpiresIn
+}
+
 mutation Register($input: RegisterInput!) {
   register(input: $input) {
-    accessToken
-    tokenType
-    expiresIn
+    ...AuthTokens
   }
 }
 
 mutation Login($input: LoginInput!) {
   login(input: $input) {
-    accessToken
-    tokenType
-    expiresIn
+    ...AuthTokens
   }
+}
+
+mutation RefreshToken($refreshToken: String!) {
+  refreshToken(refreshToken: $refreshToken) {
+    ...AuthTokens
+  }
+}
+
+mutation Logout($refreshToken: String!) {
+  logout(refreshToken: $refreshToken)
 }

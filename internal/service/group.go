@@ -17,7 +17,7 @@ import (
 
 // ErrEmailInviteNotSupported is returned by InviteMember for the email
 // path. The schema leaves the invite mechanism as an open product decision
-// (see the ⚠️ notes in api/groups/groups.graphql and docs/API_TODO.md), and
+// (see the ⚠️ notes in api/groups/groups.graphql and context/product-and-users.md), and
 // the current DB schema can't support it: users has no email column, and
 // group_invites.invited_user is a required FK to an existing user, so
 // there's no way to resolve an email to a user server-side. Only the

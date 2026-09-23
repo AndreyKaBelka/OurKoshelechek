@@ -9,6 +9,10 @@ type AuthPayload {
     tokenType: String!
     "Срок жизни accessToken в секундах."
     expiresIn: Int!
+    "Одноразовый долгоживущий токен для получения новой пары токенов через refreshToken."
+    refreshToken: String!
+    "Срок жизни refreshToken в секундах."
+    refreshExpiresIn: Int!
 }
 
 input RegisterInput {
@@ -31,4 +35,8 @@ extend type Mutation {
     register(input: RegisterInput!): AuthPayload!
     "Войти по логину и паролю."
     login(input: LoginInput!): AuthPayload!
+    "Обменять refresh-токен на новую пару токенов. Переданный refresh-токен становится недействительным."
+    refreshToken(refreshToken: String!): AuthPayload!
+    "Отозвать refresh-токен (выход из аккаунта на этом устройстве). Не требует access-токена."
+    logout(refreshToken: String!): Boolean!
 }

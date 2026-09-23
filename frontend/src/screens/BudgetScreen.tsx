@@ -1,6 +1,7 @@
 import {useState} from "react";
 import {authErrorMessage, useAppStore} from "../store/store";
-import {formatMoney, kopecksToRoubleInput, roublesToKopecks} from "../lib/money";
+import {formatMoney, kopecksToRoubleInput, parseRoubleInput} from "../lib/money";
+import {AmountInput} from "../components/AmountInput";
 import {currentPeriod} from "../lib/period";
 import {Avatar} from "../components/Avatar";
 import {useBudgetQuery} from "../graphql/operations/budget.generated";
@@ -113,16 +114,8 @@ export function BudgetScreen({onNavigate}: { onNavigate: (screen: Screen) => voi
         setCategorySaving(true);
         setError("");
 
-        const limitValue = Number(
-            categoryLimit.replace(",", ".").trim()
-        );
-
-        const monthlyLimit =
-            Number.isFinite(limitValue) && limitValue > 0
-                ? {
-                    amount: Math.round(limitValue * 100),
-                }
-                : null;
+        const limitK = parseRoubleInput(categoryLimit);
+        const monthlyLimit = limitK > 0 ? { amount: limitK } : null;
 
         const result = await createCategory({
             groupId: activeGroup!.id,
@@ -356,13 +349,11 @@ export function BudgetScreen({onNavigate}: { onNavigate: (screen: Screen) => voi
                             }}>
                                 <span style={{fontSize: 11.5, color: "var(--ink-soft)"}}>{pct}% использовано</span>
                                 <div style={{display: "flex", alignItems: "center", gap: 5}}>
-                                    <input
-                                        type="number"
-                                        inputMode="numeric"
+                                    <AmountInput
                                         className="amt-input"
                                         defaultValue={kopecksToRoubleInput(limit)}
                                         key={`${c.id}-${limit}`}
-                                        onBlur={(e) => setLimit(c.id, roublesToKopecks(parseInt(e.target.value.replace(/\D/g, ""), 10) || 0))}
+                                        onBlur={(e) => setLimit(c.id, parseRoubleInput(e.target.value))}
                                     />
                                     <span style={{fontSize: 12, color: "var(--ink-soft)"}}>₽</span>
                                 </div>
@@ -455,13 +446,11 @@ export function BudgetScreen({onNavigate}: { onNavigate: (screen: Screen) => voi
                             position: "relative",
                         }}
                     >
-                        <input
-                            type="text"
-                            inputMode="decimal"
+                        <AmountInput
                             className="field"
-                            placeholder="Например, 15000"
+                            placeholder="Например, 15 000"
                             value={categoryLimit}
-                            onChange={(e) => setCategoryLimit(e.target.value)}
+                            onChange={setCategoryLimit}
                         />
 
                         <span

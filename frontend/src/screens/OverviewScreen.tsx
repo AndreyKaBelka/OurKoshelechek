@@ -1,7 +1,7 @@
 import { useAppStore } from "../store/store";
 import { formatMoney } from "../lib/money";
 import { currentPeriod } from "../lib/period";
-import { txAmountColor, txAmountLabel, txMeta, txTitle } from "../lib/txDisplay";
+import { txAmountColor, txAmountLabel, txIcon, txMeta, txTitle } from "../lib/txDisplay";
 import { Avatar } from "../components/Avatar";
 import { useCategoriesQuery } from "../graphql/operations/categories.generated";
 import { useSummaryQuery } from "../graphql/operations/summary.generated";
@@ -158,13 +158,13 @@ export function OverviewScreen({ onNavigate }: { onNavigate: (screen: Screen) =>
           {recent.map((t) => (
             <div key={t.id} className="tx-row">
               <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                <div className="tx-icon"><span style={{ fontSize: 14 }}>{t.category?.icon || "💰"}</span></div>
+                <div className="tx-icon"><span style={{ fontSize: 14 }}>{txIcon(t)}</span></div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
                   <span className="tx-title">{txTitle(t)}</span>
                   <span className="tx-meta">{txMeta(t, members, currentUserId)}</span>
                 </div>
               </div>
-              <span className="tx-amount" style={{ color: txAmountColor(t) }}>{txAmountLabel(t)}</span>
+              <span className="tx-amount" style={{ color: txAmountColor(t, currentUserId) }}>{txAmountLabel(t, currentUserId)}</span>
             </div>
           ))}
           {recent.length === 0 && <p style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>Пока нет операций</p>}

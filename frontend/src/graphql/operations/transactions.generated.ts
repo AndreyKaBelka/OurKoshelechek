@@ -10,11 +10,14 @@ import * as Urql from 'urql';
 export type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
 export type CreateTransactionInput = {
   amount: MoneyInput;
-  /** Обязателен для type = EXPENSE; должен отсутствовать для type = INCOME. */
+  /** Обязателен для type = EXPENSE; должен отсутствовать для type = INCOME и TRANSFER. */
   categoryId?: string | null | undefined;
   comment?: string | null | undefined;
   date: string;
+  /** Для type = TRANSFER — отправитель, mode должен быть USER. */
   payer: PayerInput;
+  /** Обязателен для type = TRANSFER (участник группы, отличный от отправителя); должен отсутствовать для остальных типов. */
+  recipientUserId?: string | null | undefined;
   type: TransactionType;
 };
 
@@ -48,12 +51,15 @@ export type TransactionFilter = {
   /** Верхняя граница по date, включительно. */
   dateTo?: string | null | undefined;
   payerUserId?: string | null | undefined;
+  recipientUserId?: string | null | undefined;
   type?: TransactionType | null | undefined;
 };
 
 export type TransactionType =
   | 'EXPENSE'
-  | 'INCOME';
+  | 'INCOME'
+  /** Перевод от одного участника группы другому: для отправителя (payer.userId) это расход, для получателя (recipientUserId) — доход. Не влияет на общий баланс и итоги группы. */
+  | 'TRANSFER';
 
 export type UpdateTransactionInput = {
   amount?: MoneyInput | null | undefined;
@@ -61,6 +67,8 @@ export type UpdateTransactionInput = {
   comment?: string | null | undefined;
   date?: string | null | undefined;
   payer?: PayerInput | null | undefined;
+  /** Получатель перевода; при смене типа на не-TRANSFER сбрасывается автоматически. */
+  recipientUserId?: string | null | undefined;
   type?: TransactionType | null | undefined;
 };
 
@@ -68,10 +76,11 @@ export type TransactionsQueryVariables = Exact<{
   groupId: string;
   filter?: Types.TransactionFilter | null | undefined;
   first?: number | null | undefined;
+  after?: string | null | undefined;
 }>;
 
 
-export type TransactionsQuery = { transactions: { hasMore: boolean, total: number, items: Array<{ id: string, type: Types.TransactionType, date: string, comment: string | null, createdBy: string, createdAt: string, amount: { amount: number }, category: { id: string, name: string, icon: string } | null, payer: { mode: Types.PayerMode, userId: string | null, shares: Array<{ userId: string, amount: { amount: number } }> | null } }> } };
+export type TransactionsQuery = { transactions: { nextCursor: string | null, hasMore: boolean, total: number, items: Array<{ id: string, type: Types.TransactionType, recipientUserId: string | null, date: string, comment: string | null, createdBy: string, createdAt: string, amount: { amount: number }, category: { id: string, name: string, icon: string } | null, payer: { mode: Types.PayerMode, userId: string | null, shares: Array<{ userId: string, amount: { amount: number } }> | null } }> } };
 
 export type CreateTransactionMutationVariables = Exact<{
   groupId: string;
@@ -79,7 +88,7 @@ export type CreateTransactionMutationVariables = Exact<{
 }>;
 
 
-export type CreateTransactionMutation = { createTransaction: { id: string, type: Types.TransactionType, date: string, comment: string | null, createdBy: string, createdAt: string, amount: { amount: number }, category: { id: string, name: string, icon: string } | null, payer: { mode: Types.PayerMode, userId: string | null, shares: Array<{ userId: string, amount: { amount: number } }> | null } } };
+export type CreateTransactionMutation = { createTransaction: { id: string, type: Types.TransactionType, recipientUserId: string | null, date: string, comment: string | null, createdBy: string, createdAt: string, amount: { amount: number }, category: { id: string, name: string, icon: string } | null, payer: { mode: Types.PayerMode, userId: string | null, shares: Array<{ userId: string, amount: { amount: number } }> | null } } };
 
 export type UpdateTransactionMutationVariables = Exact<{
   groupId: string;
@@ -88,7 +97,7 @@ export type UpdateTransactionMutationVariables = Exact<{
 }>;
 
 
-export type UpdateTransactionMutation = { updateTransaction: { id: string, type: Types.TransactionType, date: string, comment: string | null, createdBy: string, createdAt: string, amount: { amount: number }, category: { id: string, name: string, icon: string } | null, payer: { mode: Types.PayerMode, userId: string | null, shares: Array<{ userId: string, amount: { amount: number } }> | null } } };
+export type UpdateTransactionMutation = { updateTransaction: { id: string, type: Types.TransactionType, recipientUserId: string | null, date: string, comment: string | null, createdBy: string, createdAt: string, amount: { amount: number }, category: { id: string, name: string, icon: string } | null, payer: { mode: Types.PayerMode, userId: string | null, shares: Array<{ userId: string, amount: { amount: number } }> | null } } };
 
 export type DeleteTransactionMutationVariables = Exact<{
   groupId: string;
@@ -100,8 +109,8 @@ export type DeleteTransactionMutation = { deleteTransaction: boolean };
 
 
 export const TransactionsDocument = gql`
-    query Transactions($groupId: UUID!, $filter: TransactionFilter, $first: Int) {
-  transactions(groupId: $groupId, filter: $filter, first: $first) {
+    query Transactions($groupId: UUID!, $filter: TransactionFilter, $first: Int, $after: UUID) {
+  transactions(groupId: $groupId, filter: $filter, first: $first, after: $after) {
     items {
       id
       type
@@ -123,11 +132,13 @@ export const TransactionsDocument = gql`
           }
         }
       }
+      recipientUserId
       date
       comment
       createdBy
       createdAt
     }
+    nextCursor
     hasMore
     total
   }
@@ -160,6 +171,7 @@ export const CreateTransactionDocument = gql`
         }
       }
     }
+    recipientUserId
     date
     comment
     createdBy
@@ -198,6 +210,7 @@ export const UpdateTransactionDocument = gql`
         }
       }
     }
+    recipientUserId
     date
     comment
     createdBy

@@ -170,7 +170,7 @@ func (s *GoalService) Contribute(ctx context.Context, groupID, goalID uuid.UUID,
 	}
 
 	now := time.Now()
-	tx, err := transaction.NewTransaction(platform.NewID(), groupID, transaction.TypeExpense, int64(amount), &cat.ID, transaction.PayerModeUser, &createdBy, date, nil, createdBy, now, now)
+	tx, err := transaction.NewTransaction(platform.NewID(), groupID, transaction.TypeExpense, int64(amount), &cat.ID, transaction.PayerModeUser, &createdBy, nil, date, nil, createdBy, now, now)
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +238,7 @@ func (s *GoalService) Withdraw(ctx context.Context, groupID, goalID uuid.UUID, i
 
 	comment := fmt.Sprintf("Снятие с цели «%s»", g.Name)
 	now := time.Now()
-	tx, err := transaction.NewTransaction(platform.NewID(), groupID, transaction.TypeIncome, int64(amount), nil, transaction.PayerModeUser, &createdBy, date, &comment, createdBy, now, now)
+	tx, err := transaction.NewTransaction(platform.NewID(), groupID, transaction.TypeIncome, int64(amount), nil, transaction.PayerModeUser, &createdBy, nil, date, &comment, createdBy, now, now)
 	if err != nil {
 		return nil, err
 	}
